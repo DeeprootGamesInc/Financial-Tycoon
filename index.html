@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Financial Tycoon</title>
+    <!-- Додано іконку -->
+    <link rel="icon" type="image/x-icon" href="logo.ico">
+    <link rel="apple-touch-icon" href="logo.ico">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -117,8 +121,8 @@
     </div>
 
     <!-- PWA Banner -->
-    <div id="pwa-banner" class="hidden bg-rose-600 text-white text-xs font-bold text-center py-2 px-4 z-50 flex justify-between items-center shrink-0">
-        <span><i data-lucide="download" class="w-3 h-3 inline mr-1"></i> App not installed. Add to Home Screen for best experience.</span>
+    <div id="pwa-banner" class="hidden bg-emerald-600 text-white text-xs font-bold text-center py-3 px-4 z-50 flex justify-between items-center shrink-0 shadow-md">
+        <!-- Вміст банеру оновлюється динамічно -->
     </div>
 
     <!-- Modals & Toasts -->
@@ -196,6 +200,68 @@
     </div>
 
     <script>
+        // --- PWA NATIVE INSTALL SETUP ---
+        const setupPWA = () => {
+            // 1. Ін'єкція Manifest (Вимога браузера для Native Install Prompt)
+            const manifest = {
+                "name": "Financial Tycoon",
+                "short_name": "Tycoon",
+                "start_url": window.location.href,
+                "display": "standalone",
+                "background_color": "#F8FAFC",
+                "theme_color": "#10b981",
+                "icons": [
+                    { "src": "logo.ico", "sizes": "192x192", "type": "image/x-icon" },
+                    { "src": "logo.ico", "sizes": "512x512", "type": "image/x-icon" }
+                ]
+            };
+            const manifestString = JSON.stringify(manifest);
+            const manifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString);
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestUrl;
+            document.head.appendChild(link);
+
+            // 2. Ін'єкція Service Worker (Вимога браузера для Native Install Prompt)
+            if ('serviceWorker' in navigator) {
+                const swCode = `self.addEventListener('fetch', function(event) {});`;
+                const swBlob = new Blob([swCode], {type: 'application/javascript'});
+                const swUrl = URL.createObjectURL(swBlob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW Error:', err));
+            }
+        };
+        setupPWA();
+
+        // 3. Обробник Native Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); // Запобігаємо автоматичному показу
+            deferredPrompt = e;
+            
+            const banner = document.getElementById('pwa-banner');
+            banner.classList.remove('hidden');
+            banner.innerHTML = `
+                <span class="flex items-center gap-2"><i data-lucide="smartphone" class="w-4 h-4"></i> Install App for Best Experience</span> 
+                <button id="btn-install" class="bg-white text-emerald-600 px-4 py-1.5 rounded-full font-extrabold text-[10px] uppercase shadow-md active:scale-95 transition-transform">Install</button>
+            `;
+            lucide.createIcons();
+            
+            document.getElementById('btn-install').addEventListener('click', async () => {
+                banner.classList.add('hidden');
+                if (deferredPrompt) {
+                    deferredPrompt.prompt(); // Показуємо нативне вікно браузера
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User response to install prompt: ${outcome}`);
+                    deferredPrompt = null;
+                }
+            });
+        });
+
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('pwa-banner').classList.add('hidden');
+            showToast("App installed successfully!", "success");
+        });
+
         // --- PRELOADER SEQUENCE ---
         window.addEventListener('load', () => {
             const preloader = document.getElementById('preloader');
@@ -375,13 +441,6 @@
         }
 
         function vibro(pattern) { if ('vibrate' in navigator) try { navigator.vibrate(pattern); } catch(e){} }
-        function checkPWA() {
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
-            if (!isStandalone) {
-                document.getElementById('pwa-banner').classList.remove('hidden');
-                setTimeout(() => showModal('📲 Install App', 'For the best experience, no browser bars, and full performance, please <strong>Add this to your Home Screen</strong>.', 'I Understand'), 2000);
-            }
-        }
 
         // --- CONSTANTS & ACHIEVEMENTS ---
         const ACHIEVEMENTS_DATA = [
@@ -620,7 +679,6 @@
             saveGame();
             renderApp();
             startGameLoops();
-            checkPWA();
 
             if (!state.tutorialCompleted) {
                 setTimeout(() => {
