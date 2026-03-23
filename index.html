@@ -130,7 +130,6 @@
 
     <!-- PWA Banner -->
     <div id="pwa-banner" class="hidden bg-emerald-600 text-white text-xs font-bold text-center py-3 px-4 z-50 flex justify-between items-center shrink-0 shadow-md">
-        <!-- Вміст банеру оновлюється динамічно -->
     </div>
 
     <!-- Modals & Toasts -->
@@ -140,7 +139,6 @@
     
     <!-- Achievements Toast Container -->
     <div id="achievement-container" class="fixed top-24 left-1/2 transform -translate-x-1/2 z-[60] flex flex-col items-center pointer-events-none gap-2 w-full max-w-sm px-4"></div>
-
     <div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-40 flex flex-col items-center pointer-events-none gap-2 w-full max-w-sm px-4"></div>
 
     <header class="bg-white/90 backdrop-blur-md p-4 sm:p-5 z-20 border-b border-slate-100 flex flex-col gap-2 shrink-0 shadow-sm transition-colors duration-500">
@@ -334,20 +332,23 @@
         try {
             firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); isFirebaseActive = true;
             auth.onAuthStateChanged(async (user) => { 
+                userProfile = user; // Set raw user object so it doesn't break methods like delete()
                 if (user) {
-                    const doc = await db.collection("leaderboard").doc(user.uid).get();
-                    if (!doc.exists || !doc.data().name) {
-                        // Prompt custom username
-                        showModal('Create Username', '<p class="text-xs text-slate-500 mb-4">Choose a cool name for the leaderboards. Your avatar is safe.</p><input id="new-user-name" class="w-full bg-slate-100 p-3 rounded-xl border border-slate-200 outline-none font-bold text-center" placeholder="Tycoon Name">', 'Start Empire', async () => {
-                            const name = document.getElementById('new-user-name').value.trim() || 'Tycoon_' + Math.floor(Math.random()*1000);
-                            await db.collection("leaderboard").doc(user.uid).set({ name: name, photo: user.photoURL || "", netWorth: getNetWorth(), timestamp: firebase.firestore.FieldValue.serverTimestamp() }, {merge: true});
-                            userProfile = { ...user, customName: name }; checkCloudSave(); renderApp();
-                        });
-                    } else {
-                        userProfile = { ...user, customName: doc.data().name }; checkCloudSave(); if(state.activeTab === 'social') renderApp();
-                    }
+                    try {
+                        const doc = await db.collection("leaderboard").doc(user.uid).get();
+                        if (!doc.exists || !doc.data().name) {
+                            // Prompt custom username
+                            showModal('Create Username', '<p class="text-xs text-slate-500 mb-4">Choose a cool name for the leaderboards. Your avatar is safe.</p><input id="new-user-name" class="w-full bg-slate-100 p-3 rounded-xl border border-slate-200 outline-none font-bold text-center" placeholder="Tycoon Name">', 'Start Empire', async () => {
+                                const name = document.getElementById('new-user-name').value.trim() || 'Tycoon_' + Math.floor(Math.random()*1000);
+                                await db.collection("leaderboard").doc(user.uid).set({ name: name, photo: user.photoURL || "", netWorth: getNetWorth(), timestamp: firebase.firestore.FieldValue.serverTimestamp() }, {merge: true});
+                                state.customUsername = name; saveGame(); checkCloudSave(); renderApp();
+                            });
+                        } else {
+                            state.customUsername = doc.data().name; saveGame(); checkCloudSave(); if(state.activeTab === 'social') renderApp();
+                        }
+                    } catch(e) { console.error("Error fetching username", e); checkCloudSave(); }
                 } else {
-                    userProfile = null; if(state.activeTab === 'social') renderApp();
+                    if(state.activeTab === 'social') renderApp();
                 }
             });
         } catch(e) { console.log("Firebase setup failed.", e); }
@@ -375,12 +376,12 @@
 
         async function updateLeaderboardScore() {
             if(!isFirebaseActive || !userProfile) return;
-            try { await db.collection("leaderboard").doc(userProfile.uid).set({ name: userProfile.customName || userProfile.displayName || "Anonymous", photo: userProfile.photoURL || "", netWorth: getNetWorth(), timestamp: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch(e) { console.error("Score sync failed", e); }
+            try { await db.collection("leaderboard").doc(userProfile.uid).set({ name: state.customUsername || userProfile.displayName || "Anonymous", photo: userProfile.photoURL || "", netWorth: getNetWorth(), timestamp: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch(e) { console.error("Score sync failed", e); }
         }
 
         function triggerDeleteAccountFlow() {
             if(!isFirebaseActive || !userProfile) { showToast("You must be logged in.", "error"); return; }
-            showModal('⚠️ Warning', 'Are you absolutely sure you want to delete your account?', 'Yes, Proceed', () => { setTimeout(() => { showModal('🛑 Irreversible Action', 'This action cannot be undone. All your money, businesses, and cloud progress will be PERMANENTLY lost.', 'I Understand, Continue', () => { setTimeout(() => { showModal('💀 Final Confirmation', 'This is your last chance to turn back. Delete account FOREVER?', 'DELETE EVERYTHING', async () => { try { document.getElementById('modal-container').classList.add('hidden'); showToast("Deleting...", "info"); await db.collection("saves").doc(userProfile.uid).delete(); await db.collection("leaderboard").doc(userProfile.uid).delete(); await auth.currentUser.delete(); localStorage.removeItem('financialTycoon_v1'); location.reload(); } catch (error) { showToast("Error deleting account. Try logging in again.", "error"); } }); }, 400); }); }, 400); });
+            showModal('⚠️ Warning', 'Are you absolutely sure you want to delete your account?', 'Yes, Proceed', () => { setTimeout(() => { showModal('🛑 Irreversible Action', 'This action cannot be undone. All your money, businesses, and cloud progress will be PERMANENTLY lost.', 'I Understand, Continue', () => { setTimeout(() => { showModal('💀 Final Confirmation', 'This is your last chance to turn back. Delete account FOREVER?', 'DELETE EVERYTHING', async () => { try { document.getElementById('modal-container').classList.add('hidden'); showToast("Deleting...", "info"); await db.collection("saves").doc(userProfile.uid).delete(); await db.collection("leaderboard").doc(userProfile.uid).delete(); await userProfile.delete(); localStorage.removeItem('financialTycoon_v1'); location.reload(); } catch (error) { showToast("Error deleting account. Try logging in again.", "error"); } }); }, 400); }); }, 400); });
         }
 
         function vibro(pattern) { if ('vibrate' in navigator) try { navigator.vibrate(pattern); } catch(e){} }
@@ -430,7 +431,7 @@
         // --- GAME STATE ---
         let state = {
             balance: 0, clickValue: 1, cardTier: 0, prestigeMultiplier: 1, wheelSpins: 0, tutorialCompleted: false,
-            language: 'en', fullscreen: false,
+            language: 'en', fullscreen: false, customUsername: null,
             stats: { taps: 0, trades: 0, darkWebUses: 0 },
             businesses: CONSTANTS.BUSINESSES.map(b => ({ id: b.id, owned: 0, employees: 0, broken: false, upgraded: false, managerOwned: false, autoHire: false, merged: false })),
             ownedLuxury: [], ownedUpgrades: [], ownedPolicies: [], portfolio: {}, achievements: [],
@@ -485,10 +486,7 @@
             const content = document.getElementById('tutorial-content');
             overlay.classList.remove('hidden');
             
-            // Allow browser to render display:flex before animating opacity
-            requestAnimationFrame(() => {
-                overlay.classList.remove('opacity-0');
-            });
+            requestAnimationFrame(() => { overlay.classList.remove('opacity-0'); });
 
             const steps = [
                 { title: "Welcome Tycoon!", text: "Your goal is to build the ultimate financial empire.", icon: "building-2", color: "text-blue-400" },
@@ -510,12 +508,10 @@
                 `;
                 lucide.createIcons();
                 document.getElementById('tut-next').onclick = () => {
-                    vibro(20);
-                    currentStep++;
+                    vibro(20); currentStep++;
                     if (currentStep < steps.length) renderStep();
                     else {
-                        overlay.classList.add('opacity-0');
-                        setTimeout(() => overlay.classList.add('hidden'), 500);
+                        overlay.classList.add('opacity-0'); setTimeout(() => overlay.classList.add('hidden'), 500);
                         state.tutorialCompleted = true; saveGame();
                         if (state.fullscreen && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(e=>console.log(e));
                     }
@@ -563,23 +559,20 @@
         // --- PRESTIGE SYSTEM ---
         function calculatePrestigeGain() {
             const nw = getNetWorth();
-            if (nw < 10000000) return 0; // Need $10M for first prestige
-            return Math.floor(Math.sqrt(nw / 10000000) * 10) / 10; // e.g. 10M = +1x, 40M = +2x
+            if (nw < 10000000) return 0;
+            return Math.floor(Math.sqrt(nw / 10000000) * 10) / 10;
         }
 
         function doPrestige() {
             const gain = calculatePrestigeGain();
             if (gain <= 0) return;
             state.prestigeMultiplier += gain;
-            
-            // Wipe Empire
             state.balance = 0; state.clickValue = 1; state.cardTier = 0;
             state.businesses.forEach(b => { b.owned=0; b.employees=0; b.broken=false; b.upgraded=false; b.managerOwned=false; b.autoHire=false; b.merged=false; });
             state.ownedLuxury = []; state.ownedUpgrades = []; state.ownedPolicies = []; state.portfolio = {};
             state.deposit = {amount:0, unlockTime:0}; state.venture = null; state.ipoAssets = []; state.research = [];
             state.mapPlots = Array(9).fill().map(() => ({ owned: false, level: 0 }));
             state.campaign = {started:false, levelsOwned:0, isPresident:false}; state.crisis = {active:false, endTime:0};
-            
             saveGame(); location.reload();
         }
 
@@ -653,15 +646,20 @@
                         <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between shadow-inner">
                             <div class="flex items-center gap-2">
                                 <img src="${userProfile.photoURL}" class="w-8 h-8 rounded-full border border-blue-200">
-                                <span class="text-xs font-bold text-blue-900">${userProfile.customName || userProfile.displayName}</span>
+                                <span class="text-xs font-bold text-blue-900">${state.customUsername || userProfile.displayName}</span>
                             </div>
                         </div>
                         <button onclick="forceCloudSync()" class="btn-dynamic w-full py-3 rounded-xl bg-blue-600 font-bold text-white shadow-md flex items-center justify-center gap-2">
                             <i data-lucide="cloud-upload" class="w-5 h-5"></i> ${t('forceSave')}
                         </button>
-                        <button onclick="triggerDeleteAccountFlow()" class="btn-dynamic w-full py-3 rounded-xl bg-rose-50 font-bold text-rose-600 border border-rose-200 flex items-center justify-center gap-2 mt-4">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i> ${t('delAccount')}
-                        </button>
+                        <div class="flex gap-2 mt-4">
+                            <button onclick="signOutGoogle(); document.getElementById('modal-btn').click();" class="btn-dynamic flex-1 py-3 rounded-xl bg-slate-100 font-bold text-slate-700 border border-slate-200 flex items-center justify-center gap-2">
+                                <i data-lucide="log-out" class="w-5 h-5"></i> ${t('signOut')}
+                            </button>
+                            <button onclick="triggerDeleteAccountFlow()" class="btn-dynamic flex-1 py-3 rounded-xl bg-rose-50 font-bold text-rose-600 border border-rose-200 flex items-center justify-center gap-2">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i> ${t('delAccount')}
+                            </button>
+                        </div>
                     ` : `
                         <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-left mt-2 shadow-inner">
                             <h4 class="font-bold text-slate-800 mb-1 text-sm"><i data-lucide="cloud" class="w-4 h-4 inline text-blue-500"></i> ${t('cloudSave')}</h4>
@@ -757,7 +755,6 @@
                 <div class="w-full mt-4 relative">
                     <h3 class="text-xl font-extrabold text-slate-800 mb-6 tracking-tight text-center"><i data-lucide="git-merge" class="w-5 h-5 inline text-blue-500"></i> ${t('skills')}</h3>
                     <div class="relative flex flex-col items-center gap-0 w-full">
-                        <!-- Main Trunk Line -->
                         <div class="absolute w-1 bg-slate-100 top-4 bottom-10 z-0 rounded-full"></div>
             `;
             
@@ -768,7 +765,6 @@
                 const isNext = !isOwned && reqMet;
                 const isLocked = !isOwned && !reqMet;
 
-                // Branch line connecting to node
                 html += `
                     <div class="relative z-10 w-full flex justify-center py-2">
                         ${i > 0 ? `<div class="absolute top-0 h-4 w-1 bg-slate-100 -translate-y-full z-[-1] rounded-full"></div>` : ''}
@@ -989,12 +985,12 @@
             } else if (!userProfile) {
                 html += `<div class="soft-panel p-8 text-center bg-gradient-to-br from-blue-50 to-white"><h3 class="font-extrabold text-2xl mb-2 text-slate-800">${t('joinElite')}</h3><p class="text-slate-500 text-sm mb-6">${t('signinCloud')}</p><button onclick="signInGoogle()" class="btn-dynamic flex items-center justify-center gap-3 w-full bg-white border border-slate-200 py-3 rounded-xl font-bold text-slate-700 hover:bg-slate-50"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5" alt="Google">${t('signinGoogle')}</button></div>`;
             } else {
-                html += `<div class="soft-panel p-5 flex items-center justify-between bg-blue-50 border-blue-100 mb-6"><div class="flex items-center gap-3"><img src="${userProfile.photoURL}" class="w-10 h-10 rounded-full border-2 border-blue-500"><div><p class="text-xs text-slate-500 font-bold uppercase">${t('loggedAs')}</p><p class="font-bold text-slate-800">${userProfile.customName || userProfile.displayName}</p></div></div><button onclick="signOutGoogle()" class="btn-dynamic text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-100">${t('signOut')}</button></div>
+                html += `<div class="soft-panel p-5 flex items-center justify-between bg-blue-50 border-blue-100 mb-6"><div class="flex items-center gap-3"><img src="${userProfile.photoURL}" class="w-10 h-10 rounded-full border-2 border-blue-500"><div><p class="text-xs text-slate-500 font-bold uppercase">${t('loggedAs')}</p><p class="font-bold text-slate-800">${state.customUsername || userProfile.displayName}</p></div></div><button onclick="signOutGoogle()" class="btn-dynamic text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-100">${t('signOut')}</button></div>
                 <div class="soft-panel p-5 relative min-h-[200px]" id="leaderboard-list"><div class="absolute inset-0 flex items-center justify-center"><i data-lucide="loader-2" class="w-8 h-8 text-slate-300 animate-spin"></i></div></div>`;
                 if(isFirebaseActive) {
                     db.collection("leaderboard").orderBy("netWorth", "desc").limit(10).get().then(snapshot => {
                         let listHtml = `<h3 class="font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">${t('topTycoons')}</h3><div class="space-y-3">`; let rank = 1;
-                        snapshot.forEach(doc => { const data = doc.data(); const isMe = data.name === (userProfile.customName || userProfile.displayName); listHtml += `<div class="flex justify-between items-center p-3 rounded-xl ${isMe ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}"><div class="flex items-center gap-3"><span class="font-bold text-slate-400 w-4 text-center">${rank}</span>${data.photo ? `<img src="${data.photo}" class="w-8 h-8 rounded-full">` : `<div class="w-8 h-8 rounded-full bg-slate-300"></div>`}<span class="font-bold text-slate-700">${data.name} ${isMe ? '(You)' : ''}</span></div><span class="font-mono font-bold text-emerald-600">${formatMoney(data.netWorth)}</span></div>`; rank++; });
+                        snapshot.forEach(doc => { const data = doc.data(); const isMe = data.name === (state.customUsername || userProfile.displayName); listHtml += `<div class="flex justify-between items-center p-3 rounded-xl ${isMe ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}"><div class="flex items-center gap-3"><span class="font-bold text-slate-400 w-4 text-center">${rank}</span>${data.photo ? `<img src="${data.photo}" class="w-8 h-8 rounded-full">` : `<div class="w-8 h-8 rounded-full bg-slate-300"></div>`}<span class="font-bold text-slate-700">${data.name} ${isMe ? '(You)' : ''}</span></div><span class="font-mono font-bold text-emerald-600">${formatMoney(data.netWorth)}</span></div>`; rank++; });
                         listHtml += `</div>`; const lbList = document.getElementById('leaderboard-list'); if(lbList) lbList.innerHTML = listHtml;
                     });
                 }
