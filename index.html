@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Financial Tycoon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #F8FAFC;
+            color: #1e293b;
+            overscroll-behavior-y: none;
+            transition: background-color 0.3s ease;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* THEMES */
+        body.vip-mode { background-color: #fffbeb; }
+        body.vip-mode header { background: linear-gradient(135deg, #fcd34d, #f59e0b); border-bottom: 2px solid #d97706; }
+        body.vip-mode header * { color: #78350f !important; }
+        body.vip-mode nav { border-color: #f59e0b; background-color: #fffbeb; }
+        body.vip-mode .soft-panel { border-color: #fde68a; box-shadow: 0 10px 40px -10px rgba(245, 158, 11, 0.15); }
+        
+        body.president-mode { background-color: #f0fdf4; }
+        body.president-mode header { background: linear-gradient(135deg, #10b981, #059669); border-bottom: 2px solid #047857; }
+        body.president-mode header * { color: #ffffff !important; }
+        body.president-mode nav { border-color: #059669; background-color: #f0fdf4; }
+        body.president-mode .soft-panel { border-color: #a7f3d0; box-shadow: 0 10px 40px -10px rgba(16, 185, 129, 0.15); }
+
+        body.crisis-mode header { background: linear-gradient(135deg, #ef4444, #991b1b); border-bottom: 2px solid #7f1d1d; }
+        body.crisis-mode header * { color: #ffffff !important; }
+
+        @keyframes float-up { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-50px) scale(1.3); opacity: 0; } }
+        .animate-float-up { animation: float-up 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+        
+        @keyframes slide-down { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        .animate-slide-down { animation: slide-down 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        @keyframes pulse-fast { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } }
+        .animate-pulse-fast { animation: pulse-fast 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        @keyframes ach-pop { 0% { transform: scale(0.8) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+        .animate-ach-pop { animation: ach-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        .soft-panel {
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.04);
+            border: 1px solid rgba(226, 232, 240, 0.6);
+            transition: all 0.2s ease;
+        }
+
+        .btn-dynamic { transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s; }
+        .btn-dynamic:active:not(:disabled) { transform: scale(0.92); }
+
+        /* 3D Card Effect */
+        #clicker-card-container { perspective: 1000px; }
+        #clicker-card { transform-style: preserve-3d; transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94); will-change: transform; }
+        .card-glare {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%);
+            opacity: 0; pointer-events: none; transition: opacity 0.2s; mix-blend-mode: overlay;
+        }
+
+        /* Navigation Scroll Hint */
+        #nav-scroll-hint {
+            background: linear-gradient(270deg, rgba(248,250,252,1) 30%, rgba(248,250,252,0) 100%);
+            pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .bounce-horizontal { animation: bounce-x 1.5s infinite; }
+        @keyframes bounce-x { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-5px); } }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 10px; }
+
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .whitespace-nowrap { white-space: nowrap; }
+
+        /* Preloader */
+        #preloader { transition: opacity 0.8s ease-in-out, visibility 0.8s; }
+        .preloader-step { transition: opacity 0.8s ease-in-out, transform 0.8s cubic-bezier(0.25, 1, 0.5, 1); }
+        
+        /* Graphs */
+        .sparkline { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: drawLine 1s ease-out forwards; }
+        @keyframes drawLine { to { stroke-dashoffset: 0; } }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden relative" oncontextmenu="return false;">
+
+    <!-- Modern Light Preloader -->
+    <div id="preloader" class="fixed inset-0 z-[100] bg-slate-50 flex flex-col items-center justify-center">
+        <!-- Step 1 -->
+        <div id="preloader-step1" class="preloader-step absolute inset-0 flex flex-col items-center justify-center opacity-0 transform translate-y-4">
+            <h2 class="text-xl font-mono tracking-[0.3em] text-slate-400 font-bold uppercase">Deeproot Games</h2>
+            <p class="text-[10px] tracking-[0.5em] mt-3 text-slate-300 uppercase">Presents</p>
+        </div>
+        <!-- Step 2 -->
+        <div id="preloader-step2" class="preloader-step absolute inset-0 flex flex-col items-center justify-center opacity-0 transform translate-y-4">
+            <div class="relative mb-6">
+                <i data-lucide="gem" class="w-20 h-20 text-emerald-500 relative z-10 animate-bounce drop-shadow-[0_10px_15px_rgba(16,185,129,0.3)]"></i>
+                <div class="absolute inset-0 bg-emerald-400 blur-2xl opacity-40 rounded-full animate-pulse-fast"></div>
+            </div>
+            <h1 class="text-4xl font-extrabold tracking-[0.1em] uppercase font-mono text-slate-800 drop-shadow-sm text-center leading-tight">Financial<br><span class="text-emerald-500">Tycoon</span></h1>
+        </div>
+    </div>
+
+    <!-- PWA Banner -->
+    <div id="pwa-banner" class="hidden bg-rose-600 text-white text-xs font-bold text-center py-2 px-4 z-50 flex justify-between items-center shrink-0">
+        <span><i data-lucide="download" class="w-3 h-3 inline mr-1"></i> App not installed. Add to Home Screen for best experience.</span>
+    </div>
+
+    <!-- Modals & Toasts -->
+    <div id="modal-container" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 hidden">
+        <div id="modal-content" class="soft-panel p-8 max-w-sm w-full text-center transition-all transform scale-95 opacity-0 duration-200 max-h-[90vh] overflow-y-auto hide-scroll border-t-4 border-slate-800 relative"></div>
+    </div>
+    
+    <!-- Achievements Toast Container -->
+    <div id="achievement-container" class="fixed top-24 left-1/2 transform -translate-x-1/2 z-[60] flex flex-col items-center pointer-events-none gap-2 w-full max-w-sm px-4"></div>
+
+    <div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-40 flex flex-col items-center pointer-events-none gap-2 w-full max-w-sm px-4"></div>
+
+    <header class="bg-white/90 backdrop-blur-md p-4 sm:p-5 z-20 border-b border-slate-100 flex flex-col gap-2 shrink-0 shadow-sm transition-colors duration-500">
+        <div class="flex justify-between items-start max-w-2xl mx-auto w-full">
+            <div>
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <p class="text-slate-400 text-[10px] uppercase tracking-widest font-bold w-full sm:w-auto mb-1 sm:mb-0">Balance</p>
+                    <span id="player-status" class="text-[10px] font-bold px-2 py-0.5 rounded-full text-slate-500 bg-slate-100">Broke</span>
+                    <span id="prestige-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 hidden">x1</span>
+                    <span id="boost-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 hidden animate-pulse"><i data-lucide="flame" class="w-3 h-3 inline"></i> x5</span>
+                    <span id="dark-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-green-400 hidden animate-pulse"><i data-lucide="skull" class="w-3 h-3 inline"></i> Dark</span>
+                    <span id="crisis-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 hidden animate-pulse"><i data-lucide="trending-down" class="w-3 h-3 inline"></i> CRISIS</span>
+                </div>
+                <h1 id="balance-display" class="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight transition-colors">$0</h1>
+            </div>
+            <div class="text-right flex flex-col items-end">
+                <div class="flex gap-2 mb-2">
+                    <button id="btn-fullscreen" class="btn-dynamic text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-lg"><i data-lucide="maximize" class="w-4 h-4"></i></button>
+                    <button onclick="openSettings()" class="btn-dynamic text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-lg"><i data-lucide="settings" class="w-4 h-4"></i></button>
+                </div>
+                <p class="text-slate-400 text-[10px] uppercase tracking-widest font-bold mb-1">Passive</p>
+                <p class="text-xl sm:text-2xl font-bold text-emerald-500 leading-none">
+                    +<span id="passive-display">0</span><span class="text-xs text-emerald-500/50">/s</span>
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="flex-1 overflow-y-auto p-4 sm:p-6 pb-[180px] hide-scroll"></main>
+
+    <div class="fixed bottom-4 left-2 right-2 max-w-3xl mx-auto z-30 pb-safe pointer-events-none">
+        <div class="relative w-full rounded-3xl overflow-hidden pointer-events-auto">
+            <nav id="main-nav" class="bg-white/95 backdrop-blur-xl p-2 rounded-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] border border-white flex justify-start sm:justify-between overflow-x-auto hide-scroll transition-colors duration-500 gap-1 snap-x w-full relative z-10">
+                <button data-tab="bank" class="nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 text-slate-800 bg-slate-100 shrink-0">
+                    <i data-lucide="credit-card" class="stroke-[2.5px]"></i><span class="text-[10px] mt-1.5 font-bold tracking-wide">Bank</span>
+                </button>
+                <button data-tab="business" class="nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 text-slate-400 hover:text-slate-600 shrink-0">
+                    <i data-lucide="briefcase"></i><span class="text-[10px] mt-1.5 font-bold tracking-wide">Biz</span>
+                </button>
+                <button data-tab="map" class="nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 text-slate-400 hover:text-slate-600 shrink-0">
+                    <i data-lucide="map"></i><span class="text-[10px] mt-1.5 font-bold tracking-wide">Map</span>
+                </button>
+                <button data-tab="market" class="nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 text-slate-400 hover:text-slate-600 shrink-0">
+                    <i data-lucide="line-chart"></i><span class="text-[10px] mt-1.5 font-bold tracking-wide">Trade</span>
+                </button>
+                <button data-tab="luxury" class="nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 text-slate-400 hover:text-slate-600 shrink-0">
+                    <i data-lucide="gem"></i><span class="text-[10px] mt-1.5 font-bold tracking-wide">Lux</span>
+                </button>
+                <button data-tab="gov" class="nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 text-slate-400 hover:text-slate-600 shrink-0">
+                    <i data-lucide="landmark"></i><span class="text-[10px] mt-1.5 font-bold tracking-wide">Power</span>
+                </button>
+                <button data-tab="social" class="nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 text-slate-400 hover:text-slate-600 shrink-0">
+                    <i data-lucide="trophy"></i><span class="text-[10px] mt-1.5 font-bold tracking-wide">Rank</span>
+                </button>
+                <button data-tab="dark" class="nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 text-slate-400 hover:text-slate-600 shrink-0">
+                    <i data-lucide="skull"></i><span class="text-[10px] mt-1.5 font-bold tracking-wide">Dark</span>
+                </button>
+            </nav>
+            <div id="nav-scroll-hint" class="absolute right-0 top-0 bottom-0 w-20 z-20 flex items-center justify-end pr-2 sm:hidden pointer-events-none">
+                <div class="bg-slate-800 text-white rounded-full p-1 shadow-lg bounce-horizontal">
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- PRELOADER SEQUENCE ---
+        window.addEventListener('load', () => {
+            const preloader = document.getElementById('preloader');
+            const step1 = document.getElementById('preloader-step1');
+            const step2 = document.getElementById('preloader-step2');
+            
+            setTimeout(() => { step1.classList.remove('opacity-0', 'translate-y-4'); }, 300);
+            setTimeout(() => { step1.classList.add('opacity-0', '-translate-y-4'); }, 2000);
+            setTimeout(() => { step2.classList.remove('opacity-0', 'translate-y-4'); }, 2800);
+            setTimeout(() => { step2.classList.add('opacity-0', '-translate-y-4'); }, 5000);
+            setTimeout(() => { 
+                preloader.style.opacity = '0'; 
+                setTimeout(() => preloader.style.visibility = 'hidden', 800);
+            }, 5500);
+        });
+
+        // --- DISABLE RIGHT CLICK ---
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        // --- INTERACTION & FULLSCREEN LOGIC ---
+        const btnFullscreen = document.getElementById('btn-fullscreen');
+        
+        function handleFullscreenToggle() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => console.log(err));
+                btnFullscreen.innerHTML = '<i data-lucide="minimize" class="w-4 h-4"></i>';
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                btnFullscreen.innerHTML = '<i data-lucide="maximize" class="w-4 h-4"></i>';
+            }
+            lucide.createIcons();
+        }
+        
+        btnFullscreen.addEventListener('click', handleFullscreenToggle);
+        
+        document.addEventListener('fullscreenchange', () => {
+            btnFullscreen.innerHTML = document.fullscreenElement ? '<i data-lucide="minimize" class="w-4 h-4"></i>' : '<i data-lucide="maximize" class="w-4 h-4"></i>';
+            lucide.createIcons();
+        });
+
+        function handleFirstInteraction() {
+            startMusic();
+            if (!document.fullscreenElement && window.innerWidth <= 768 && document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(e => console.log("FS blocked initially", e));
+            }
+        }
+        document.body.addEventListener('click', handleFirstInteraction, { once: true });
+
+        // --- AUDIO SYSTEM ---
+        const AUDIO_TRACKS = ['track1.mp3', 'track2.mp3', 'track3.mp3'];
+        let currentAudio = new Audio();
+        let currentTrackIndex = -1;
+        let musicStarted = false;
+        let isMuted = false;
+
+        function startMusic() {
+            if (musicStarted || isMuted || AUDIO_TRACKS.length === 0) return;
+            musicStarted = true;
+            playNextTrack();
+        }
+
+        function playNextTrack() {
+            if (isMuted) return;
+            let nextIndex;
+            do { nextIndex = Math.floor(Math.random() * AUDIO_TRACKS.length); } while (nextIndex === currentTrackIndex && AUDIO_TRACKS.length > 1);
+            currentTrackIndex = nextIndex;
+            
+            currentAudio.src = AUDIO_TRACKS[currentTrackIndex];
+            currentAudio.volume = 0;
+            currentAudio.play().then(() => {
+                let vol = 0;
+                const fadeInterval = setInterval(() => {
+                    if (vol < 0.3) { vol += 0.05; currentAudio.volume = Math.min(vol, 0.3); } 
+                    else { clearInterval(fadeInterval); }
+                }, 200);
+            }).catch(e => console.log("Audio play blocked.", e));
+        }
+
+        currentAudio.addEventListener('ended', playNextTrack);
+
+        // --- FIREBASE SETUP ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyD-TofsreirJjVYYYoemw_zi6H1q_t3bQ8",
+            authDomain: "financial-tycoon.firebaseapp.com",
+            projectId: "financial-tycoon",
+            storageBucket: "financial-tycoon.firebasestorage.app",
+            messagingSenderId: "624430983172",
+            appId: "1:624430983172:web:522a95a1e6529984d3ad51",
+            measurementId: "G-04SXST3J1C"
+        };
+
+        let db, auth, userProfile = null, isFirebaseActive = false;
+        let lastCloudSaveTime = 0;
+
+        try {
+            firebase.initializeApp(firebaseConfig); 
+            db = firebase.firestore(); 
+            auth = firebase.auth(); 
+            isFirebaseActive = true;
+            auth.onAuthStateChanged((user) => { 
+                userProfile = user; 
+                if (user) checkCloudSave();
+                if(state.activeTab === 'social') renderApp(); 
+            });
+        } catch(e) { console.log("Firebase setup failed.", e); }
+
+        function signInGoogle() {
+            if(!isFirebaseActive) { showToast("Firebase not configured.", "error"); return; }
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(error => showToast("Sign in failed: " + error.message, "error"));
+        }
+        
+        function signOutGoogle() { 
+            if(isFirebaseActive) auth.signOut().then(() => { showToast("Logged out successfully", "success"); }); 
+        }
+
+        async function checkCloudSave() {
+            if(!isFirebaseActive || !userProfile) return;
+            try {
+                const doc = await db.collection("saves").doc(userProfile.uid).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    const cloudState = JSON.parse(data.state);
+                    if (cloudState.balance > state.balance * 1.5 || (data.timestamp && data.timestamp.toMillis() > state.lastPlayed + 60000)) {
+                        showModal('☁️ Cloud Save Found', `We found a save in the cloud with <b>${formatMoney(cloudState.balance)}</b>.<br>Do you want to restore it? Local progress will be overwritten.`, 'Yes, Restore Cloud Save', () => {
+                            state = { ...state, ...cloudState, activeTab: 'bank' };
+                            if(!state.stats) state.stats = { taps: 0, trades: 0, darkWebUses: 0 };
+                            saveGame(); renderApp(); showToast("Cloud save restored!", "success");
+                        });
+                    }
+                }
+            } catch(e) { console.error("Cloud load failed", e); }
+        }
+
+        async function forceCloudSync() {
+            if(!isFirebaseActive || !userProfile) { showToast("Sign in first!", "error"); return; }
+            try {
+                await db.collection("saves").doc(userProfile.uid).set({
+                    state: JSON.stringify(state), timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                lastCloudSaveTime = Date.now();
+                showToast("Synced to Cloud Successfully!", "success");
+            } catch(e) { showToast("Cloud Sync Failed", "error"); console.error(e); }
+        }
+
+        async function updateLeaderboardScore() {
+            if(!isFirebaseActive || !userProfile) return;
+            try {
+                await db.collection("leaderboard").doc(userProfile.uid).set({
+                    name: userProfile.displayName || "Anonymous", photo: userProfile.photoURL || "",
+                    netWorth: getNetWorth(), timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            } catch(e) { console.error("Score sync failed", e); }
+        }
+
+        function triggerDeleteAccountFlow() {
+            if(!isFirebaseActive || !userProfile) { showToast("You must be logged in.", "error"); return; }
+            showModal('⚠️ Warning', 'Are you absolutely sure you want to delete your account?', 'Yes, Proceed', () => {
+                setTimeout(() => {
+                    showModal('🛑 Irreversible Action', 'This action cannot be undone. All your money, businesses, and cloud progress will be PERMANENTLY lost.', 'I Understand, Continue', () => {
+                        setTimeout(() => {
+                            showModal('💀 Final Confirmation', 'This is your last chance to turn back. Delete account FOREVER?', 'DELETE EVERYTHING', async () => {
+                                try {
+                                    document.getElementById('modal-container').classList.add('hidden');
+                                    showToast("Deleting...", "info");
+                                    await db.collection("saves").doc(userProfile.uid).delete();
+                                    await db.collection("leaderboard").doc(userProfile.uid).delete();
+                                    await auth.currentUser.delete();
+                                    localStorage.removeItem('financialTycoon_v1');
+                                    location.reload();
+                                } catch (error) { showToast("Error deleting account. Try logging in again.", "error"); }
+                            });
+                        }, 400);
+                    });
+                }, 400);
+            });
+        }
+
+        function vibro(pattern) { if ('vibrate' in navigator) try { navigator.vibrate(pattern); } catch(e){} }
+        function checkPWA() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
+            if (!isStandalone) {
+                document.getElementById('pwa-banner').classList.remove('hidden');
+                setTimeout(() => showModal('📲 Install App', 'For the best experience, no browser bars, and full performance, please <strong>Add this to your Home Screen</strong>.', 'I Understand'), 2000);
+            }
+        }
+
+        // --- CONSTANTS & ACHIEVEMENTS ---
+        const ACHIEVEMENTS_DATA = [
+            // Net Worth
+            { id: 'a1', title: 'First Blood', desc: 'Earn your first $1,000', req: () => state.balance >= 1000, gif: 'ach_a1.gif' },
+            { id: 'a2', title: 'Millionaire', desc: 'Reach $1,000,000 Net Worth', req: () => getNetWorth() >= 1000000, gif: 'ach_a2.gif' },
+            { id: 'a3', title: 'Billionaire', desc: 'Reach $1,000,000,000 Net Worth', req: () => getNetWorth() >= 1000000000, gif: 'ach_a3.gif' },
+            { id: 'a4', title: 'Trillionaire', desc: 'Reach $1 Trillion Net Worth', req: () => getNetWorth() >= 1000000000000, gif: 'ach_a4.gif' },
+            { id: 'a5', title: 'Quadrillionaire', desc: 'Reach $1 Quadrillion Net Worth', req: () => getNetWorth() >= 1000000000000000, gif: 'ach_a5.gif' },
+            // Taps
+            { id: 'a6', title: 'First Tap', desc: 'Tap the card 1 time', req: () => state.stats.taps >= 1, gif: 'ach_a6.gif' },
+            { id: 'a7', title: 'Hard Worker', desc: 'Tap the card 100 times', req: () => state.stats.taps >= 100, gif: 'ach_a7.gif' },
+            { id: 'a8', title: 'Clicker Pro', desc: 'Tap the card 1,000 times', req: () => state.stats.taps >= 1000, gif: 'ach_a8.gif' },
+            { id: 'a9', title: 'Finger of God', desc: 'Tap the card 5,000 times', req: () => state.stats.taps >= 5000, gif: 'ach_a9.gif' },
+            { id: 'a10', title: 'Carpal Tunnel', desc: 'Tap the card 10,000 times', req: () => state.stats.taps >= 10000, gif: 'ach_a10.gif' },
+            // Business
+            { id: 'a11', title: 'Humble Beginnings', desc: 'Buy 1 Lemonade Stand', req: () => state.businesses[0].owned >= 1, gif: 'ach_a11.gif' },
+            { id: 'a12', title: 'Local Chain', desc: 'Buy 10 Lemonade Stands', req: () => state.businesses[0].owned >= 10, gif: 'ach_a12.gif' },
+            { id: 'a13', title: 'To the Moon', desc: 'Buy AstroSpace', req: () => state.businesses.find(b=>b.id==='b9').owned >= 1, gif: 'ach_a13.gif' },
+            { id: 'a14', title: 'True Tycoon', desc: 'Own at least 1 of EVERY business', req: () => state.businesses.every(b => b.owned > 0), gif: 'ach_a14.gif' },
+            { id: 'a15', title: 'Megacorp', desc: 'Have 100 total business levels', req: () => state.businesses.reduce((sum, b) => sum + b.owned, 0) >= 100, gif: 'ach_a15.gif' },
+            // Monopoly (Map)
+            { id: 'a16', title: 'First Turf', desc: 'Buy 1 Map Plot', req: () => state.mapPlots.filter(p => p.owned).length >= 1, gif: 'ach_a16.gif' },
+            { id: 'a17', title: 'Landlord', desc: 'Buy 5 Map Plots', req: () => state.mapPlots.filter(p => p.owned).length >= 5, gif: 'ach_a17.gif' },
+            { id: 'a18', title: 'Monopoly Man', desc: 'Buy all 9 Map Plots', req: () => state.mapPlots.every(p => p.owned), gif: 'ach_a18.gif' },
+            { id: 'a19', title: 'Tower Builder', desc: 'Build 1 max level HQ', req: () => state.mapPlots.some(p => p.level >= 5), gif: 'ach_a19.gif' },
+            { id: 'a20', title: 'Metropolis', desc: 'Max out all 9 HQs', req: () => state.mapPlots.every(p => p.level >= 5), gif: 'ach_a20.gif' },
+            // Market
+            { id: 'a21', title: 'First Trade', desc: 'Make your first market trade', req: () => state.stats.trades >= 1, gif: 'ach_a21.gif' },
+            { id: 'a22', title: 'Day Trader', desc: 'Make 50 market trades', req: () => state.stats.trades >= 50, gif: 'ach_a22.gif' },
+            { id: 'a23', title: 'Crypto Bro', desc: 'Buy 1 BiteCoin', req: () => (state.portfolio['m1'] || 0) >= 1, gif: 'ach_a23.gif' },
+            { id: 'a24', title: 'Elon Fan', desc: 'Buy 1 Telson Stock', req: () => (state.portfolio['mx1'] || 0) >= 1, gif: 'ach_a24.gif' },
+            { id: 'a25', title: 'Diamond Hands', desc: 'Hold 10 BiteCoins', req: () => (state.portfolio['m1'] || 0) >= 10, gif: 'ach_a25.gif' },
+            // Dark Web & Politics
+            { id: 'a26', title: 'Dirty Money', desc: 'Use the Dark Web once', req: () => state.stats.darkWebUses >= 1, gif: 'ach_a26.gif' },
+            { id: 'a27', title: 'Hacker', desc: 'Use DDoS on competitors', req: () => state.blackMarket.ddosActiveUntil > 0, gif: 'ach_a27.gif' },
+            { id: 'a28', title: 'Politician', desc: 'Start a Political Campaign', req: () => state.campaign.started, gif: 'ach_a28.gif' },
+            { id: 'a29', title: 'Governor', desc: 'Reach State Governor rank', req: () => state.campaign.levelsOwned >= 4, gif: 'ach_a29.gif' },
+            { id: 'a30', title: 'Mr. President', desc: 'Win the election', req: () => state.campaign.isPresident, gif: 'ach_a30.gif' }
+        ];
+
+        const CARD_TIERS = [
+            { id: 0, name: 'Titanium Base', cost: 0, clickMulti: 1, styles: 'from-slate-800 to-slate-900 text-slate-200 border-slate-700/50 shadow-slate-900/30' },
+            { id: 1, name: 'Obsidian Black', cost: 50000, clickMulti: 5, styles: 'from-black to-zinc-900 text-zinc-300 border-zinc-800 shadow-black/50' },
+            { id: 2, name: 'Diamond Elite', cost: 5000000, clickMulti: 25, styles: 'from-cyan-100 to-blue-200 text-blue-900 border-white shadow-cyan-500/30' },
+            { id: 3, name: 'Centurion Holo', cost: 1000000000, clickMulti: 100, styles: 'from-purple-600 via-pink-500 to-amber-500 text-white border-white/20 shadow-purple-500/40 animate-pulse-fast' }
+        ];
+
+        const CONSTANTS = {
+            BUSINESSES: [
+                { id: 'b0', name: 'Lemonade Stand', baseCost: 10, baseIncome: 0.5, icon: '🍋', empCost: 100, empSalary: 1, repairCost: 50, upgradeName: 'Ice Cooler', upgradeCost: 500, managerCost: 2000 },
+                { id: 'b1', name: 'Hot Dog Stand', baseCost: 50, baseIncome: 1, icon: '🌭', empCost: 500, empSalary: 5, repairCost: 250, upgradeName: 'Neon Sign', upgradeCost: 2500, managerCost: 10000 },
+                { id: 'b2', name: 'Coffee Shop', baseCost: 500, baseIncome: 10, icon: '☕', empCost: 5000, empSalary: 50, repairCost: 2500, upgradeName: 'Drive-Thru', upgradeCost: 25000, managerCost: 100000 },
+                { id: 'b3', name: 'Car Wash', baseCost: 2500, baseIncome: 50, icon: '🚗', empCost: 25000, empSalary: 250, repairCost: 12500, upgradeName: 'Premium Wax', upgradeCost: 125000, managerCost: 500000 },
+                { id: 'b4', name: 'Tech Startup', baseCost: 15000, baseIncome: 350, icon: '💻', empCost: 150000, empSalary: 1750, repairCost: 75000, upgradeName: 'AI Integration', upgradeCost: 750000, managerCost: 3000000 },
+                { id: 'bx1', name: 'Fitness Gym', baseCost: 45000, baseIncome: 1000, icon: '🏋️', empCost: 450000, empSalary: 5000, repairCost: 200000, upgradeName: 'Sauna Box', upgradeCost: 2000000, managerCost: 8000000 },
+                { id: 'b5', name: 'Mega Mall', baseCost: 100000, baseIncome: 2500, icon: '🏢', empCost: 1000000, empSalary: 12500, repairCost: 500000, upgradeName: 'IMAX Cinema', upgradeCost: 5000000, managerCost: 20000000 },
+                { id: 'bx2', name: 'Nightclub', baseCost: 350000, baseIncome: 8000, icon: '🕺', empCost: 3500000, empSalary: 40000, repairCost: 1500000, upgradeName: 'VIP Lounge', upgradeCost: 15000000, managerCost: 60000000 },
+                { id: 'b6', name: 'Liberty Bank', baseCost: 1000000, baseIncome: 30000, icon: '🏦', empCost: 10000000, empSalary: 150000, repairCost: 5000000, upgradeName: 'Offshore Accounts', upgradeCost: 50000000, managerCost: 200000000 },
+                { id: 'bx3', name: 'Shipping Port', baseCost: 5000000, baseIncome: 120000, icon: '🚢', empCost: 50000000, empSalary: 600000, repairCost: 25000000, upgradeName: 'Auto-Cranes', upgradeCost: 250000000, managerCost: 1000000000 },
+                { id: 'b7', name: 'Neon Casino', baseCost: 15000000, baseIncome: 450000, icon: '🎰', empCost: 150000000, empSalary: 2250000, repairCost: 75000000, upgradeName: 'High Roller Room', upgradeCost: 750000000, managerCost: 3000000000 },
+                { id: 'bx4', name: 'Media Empire', baseCost: 50000000, baseIncome: 1500000, icon: '📺', empCost: 500000000, empSalary: 7500000, repairCost: 250000000, upgradeName: 'Global Satellites', upgradeCost: 2500000000, managerCost: 10000000000 },
+                { id: 'b8', name: 'AeroGlobal', baseCost: 250000000, baseIncome: 8000000, icon: '🛫', empCost: 2500000000, empSalary: 40000000, repairCost: 1250000000, upgradeName: 'Supersonics', upgradeCost: 12500000000, managerCost: 50000000000 },
+                { id: 'bx5', name: 'Diamond Mine', baseCost: 1000000000, baseIncome: 35000000, icon: '💎', empCost: 10000000000, empSalary: 150000000, repairCost: 5000000000, upgradeName: 'Laser Drills', upgradeCost: 50000000000, managerCost: 200000000000 },
+                { id: 'b9', name: 'AstroSpace', baseCost: 5000000000, baseIncome: 150000000, icon: '🚀', empCost: 50000000000, empSalary: 750000000, repairCost: 25000000000, upgradeName: 'Warp Drive', upgradeCost: 250000000000, managerCost: 1000000000000 },
+                { id: 'bx6', name: 'Mars Colony', baseCost: 25000000000, baseIncome: 800000000, icon: '🪐', empCost: 250000000000, empSalary: 4000000000, repairCost: 125000000000, upgradeName: 'Terraforming', upgradeCost: 1250000000000, managerCost: 5000000000000 },
+                { id: 'bx7', name: 'Asteroid Miner', baseCost: 100000000000, baseIncome: 3500000000, icon: '☄️', empCost: 1000000000000, empSalary: 15000000000, repairCost: 500000000000, upgradeName: 'Matter Beam', upgradeCost: 5000000000000, managerCost: 20000000000000 },
+                { id: 'bx8', name: 'Dyson Sphere', baseCost: 500000000000, baseIncome: 20000000000, icon: '☀️', empCost: 5000000000000, empSalary: 100000000000, repairCost: 2500000000000, upgradeName: 'Energy Nexus', upgradeCost: 25000000000000, managerCost: 100000000000000 },
+                { id: 'bx9', name: 'Galaxy Hub', baseCost: 2000000000000, baseIncome: 100000000000, icon: '🌌', empCost: 20000000000000, empSalary: 500000000000, repairCost: 10000000000000, upgradeName: 'Wormhole', upgradeCost: 100000000000000, managerCost: 500000000000000 }
+            ],
+            LUXURY: [
+                { id: 'l1', name: 'Designer Suit', cost: 5000, icon: '👔' },
+                { id: 'l2', name: 'ChronoLux Watch', cost: 15000, icon: '⌚' },
+                { id: 'l3', name: 'Hurly Motorcycle', cost: 35000, icon: '🏍️' },
+                { id: 'l4', name: 'Telson Model X', cost: 120000, icon: '🚙' },
+                { id: 'lx1', name: 'Diamond Ring', cost: 500000, icon: '💍' },
+                { id: 'l5', name: 'City Penthouse', cost: 2500000, icon: '🏙️' },
+                { id: 'lx2', name: 'Hypercar', cost: 5000000, icon: '🏎️' },
+                { id: 'l6', name: 'Superyacht', cost: 15000000, icon: '🛥️' },
+                { id: 'l7', name: 'Private Jet', cost: 45000000, icon: '✈️' },
+                { id: 'lx3', name: 'Classic Art Piece', cost: 100000000, icon: '🖼️' },
+                { id: 'l8', name: 'Hawaii Island', cost: 250000000, icon: '🏝️' },
+                { id: 'lx4', name: 'European Castle', cost: 800000000, icon: '🏰' },
+                { id: 'l9', name: 'Pro Sports Team', cost: 2500000000, icon: '🏀' },
+                { id: 'lx5', name: 'Private Submarine', cost: 10000000000, icon: '⛴️' },
+                { id: 'lx6', name: 'Social Media App', cost: 45000000000, icon: '📱' },
+                { id: 'l10', name: 'Mars Colony', cost: 100000000000, icon: '🪐' },
+                { id: 'lx7', name: 'Lunar Base', cost: 500000000000, icon: '🌕' },
+                { id: 'lx8', name: 'Orbital Station', cost: 2000000000000, icon: '🛰️' },
+                { id: 'lx9', name: 'Time Machine', cost: 10000000000000, icon: '⏳' }
+            ],
+            UPGRADES: [
+                { id: 'u0', name: 'Ergonomic Chair', cost: 100, boost: 1, icon: '🪑' },
+                { id: 'u1', name: 'Better Wallet', cost: 500, boost: 4, icon: '👛' },
+                { id: 'u2', name: 'Fin. Advisor', cost: 5000, boost: 45, icon: '👨‍💼' },
+                { id: 'ux1', name: 'Gold Mouse', cost: 15000, boost: 150, icon: '🖱️' },
+                { id: 'u3', name: 'Insider Info', cost: 50000, boost: 450, icon: '🤫' },
+                { id: 'ux2', name: 'Diamond Screen', cost: 150000, boost: 1500, icon: '🖥️' },
+                { id: 'u4', name: 'Hedge Magic', cost: 500000, boost: 4500, icon: '🪄' },
+                { id: 'ux3', name: 'AI Assistant', cost: 2500000, boost: 20000, icon: '🧠' },
+                { id: 'u5', name: 'Money Printer', cost: 10000000, boost: 45000, icon: '🖨️' },
+                { id: 'ux4', name: 'Quantum Keypad', cost: 50000000, boost: 100000, icon: '⌨️' },
+                { id: 'u6', name: 'Quantum Bot', cost: 500000000, boost: 500000, icon: '🤖' },
+                { id: 'ux5', name: 'Neural Link', cost: 2500000000, boost: 2000000, icon: '🔗' },
+                { id: 'u7', name: 'Illuminati Network', cost: 10000000000, boost: 10000000, icon: '👁️' },
+                { id: 'ux6', name: 'Time Warp Tech', cost: 50000000000, boost: 50000000, icon: '🌀' },
+                { id: 'ux7', name: 'Global Monopoly', cost: 500000000000, boost: 500000000, icon: '🌍' },
+                { id: 'ux8', name: 'Reality Editor', cost: 5000000000000, boost: 5000000000, icon: '✍️' },
+                { id: 'ux9', name: 'God Mode', cost: 50000000000000, boost: 100000000000, icon: '👑' }
+            ],
+            MARKET: [
+                { id: 'm1', name: 'BiteCoin (BXC)', basePrice: 60000, volatility: 0.05, icon: '₿' },
+                { id: 'm2', name: 'Etherium (ETR)', basePrice: 3000, volatility: 0.08, icon: '⧫' },
+                { id: 'm3', name: 'S&P 5000 (SPX)', basePrice: 500, volatility: 0.02, icon: '📈' },
+                { id: 'm4', name: 'DogeCoin (DOGX)', basePrice: 1, volatility: 0.25, icon: '🐕' },
+                { id: 'mx1', name: 'Telson (TSLA)', basePrice: 200, volatility: 0.06, icon: '🚗' },
+                { id: 'mx2', name: 'Pear (AAPL)', basePrice: 150, volatility: 0.03, icon: '🍏' },
+                { id: 'mx3', name: 'MacroHard (MSFT)', basePrice: 350, volatility: 0.03, icon: '🪟' },
+                { id: 'mx4', name: 'Gold Ounce (XAU)', basePrice: 2000, volatility: 0.01, icon: '🪙' },
+                { id: 'mx5', name: 'Crude Oil (OIL)', basePrice: 80, volatility: 0.07, icon: '🛢️' },
+                { id: 'mx6', name: 'Silver (XAG)', basePrice: 25, volatility: 0.02, icon: '🥄' },
+                { id: 'mx7', name: 'Tech ETF (QQQ)', basePrice: 400, volatility: 0.03, icon: '💻' },
+                { id: 'mx8', name: 'Bank Index (XLF)', basePrice: 35, volatility: 0.02, icon: '🏦' },
+                { id: 'mx9', name: 'Real Estate (VNQ)', basePrice: 85, volatility: 0.01, icon: '🏠' },
+                { id: 'mx10', name: 'Gov Bonds (BND)', basePrice: 100, volatility: 0.005, icon: '📜' }
+            ],
+            RESEARCH: [
+                { id: 'r1', name: 'Offshore Accts', desc: '-50% Salaries', cost: 5000000, icon: 'file-warning' },
+                { id: 'r2', name: 'Quality Control', desc: 'Breakdowns 5% (was 20%)', cost: 25000000, icon: 'shield-check' },
+                { id: 'r3', name: 'HFT Trading', desc: 'Market updates every 1s', cost: 100000000, icon: 'cpu' },
+                { id: 'r4', name: 'Lobbying', desc: 'Bank Deposit yields 10%', cost: 500000000, icon: 'landmark' },
+                { id: 'rx1', name: 'Tax Loopholes', desc: 'Salaries -75%', cost: 2500000000, icon: 'scissors' },
+                { id: 'rx2', name: 'Automation', desc: 'Breakdowns 1%', cost: 10000000000, icon: 'bot' },
+                { id: 'rx3', name: 'AI Management', desc: 'Auto-Hire is FREE', cost: 50000000000, icon: 'brain' },
+                { id: 'rx4', name: 'Zero-G Tech', desc: 'Global Income +20%', cost: 250000000000, icon: 'rocket' },
+                { id: 'rx5', name: 'Mind Control', desc: 'Employee Salaries = $0', cost: 1000000000000, icon: 'eye' },
+                { id: 'rx6', name: 'Market Rigging', desc: 'Market never crashes', cost: 5000000000000, icon: 'trending-up' },
+                { id: 'rx7', name: 'Legal Immunity', desc: 'No Dark Web SEC Fines', cost: 25000000000000, icon: 'scale' },
+                { id: 'rx8', name: 'Infinite Energy', desc: 'Global Income +50%', cost: 100000000000000, icon: 'zap' },
+                { id: 'rx9', name: 'Dark Matter', desc: 'Global Income +100%', cost: 500000000000000, icon: 'atom' },
+                { id: 'rx10', name: 'Immortality', desc: 'Prestige Multi +10', cost: 5000000000000000, icon: 'infinity' }
+            ],
+            POLICIES: [
+                { id: 'p1', name: 'Fix Potholes', cost: 1000000, effect: '+1% Global Income', type: 'income', value: 0.01 },
+                { id: 'p2', name: 'Fund Parks', cost: 5000000, effect: '+2% Global Income', type: 'income', value: 0.02 },
+                { id: 'p3', name: 'City WiFi', cost: 25000000, effect: '+5% Global Income', type: 'income', value: 0.05 },
+                { id: 'p4', name: 'Highway System', cost: 100000000, effect: '+10% Global Income', type: 'income', value: 0.10 },
+                { id: 'p5', name: 'Free Healthcare', cost: 500000000, effect: '-10% Breakdowns', type: 'breakdown', value: -0.10 },
+                { id: 'p6', name: 'Tech Subsidies', cost: 2500000000, effect: '+20% Global Income', type: 'income', value: 0.20 },
+                { id: 'p7', name: 'High-Speed Rail', cost: 10000000000, effect: '+30% Global Income', type: 'income', value: 0.30 },
+                { id: 'p8', name: 'Universal Income', cost: 50000000000, effect: '+50% Global Income', type: 'income', value: 0.50 },
+                { id: 'p9', name: 'Space Elevator', cost: 250000000000, effect: '+100% Global Income', type: 'income', value: 1.0 },
+                { id: 'p10', name: 'World Peace', cost: 1000000000000, effect: '+200% Global Income', type: 'income', value: 2.0 }
+            ],
+            CAMPAIGN: [
+                { name: 'City Council', cost: 50000000000, desc: '+10% Total Income' },
+                { name: 'Local Mayor', cost: 250000000000, desc: '+10% Total Income' },
+                { name: 'State Senator', cost: 1000000000000, desc: '+10% Total Income' },
+                { name: 'State Governor', cost: 5000000000000, desc: '+10% Total Income' },
+                { name: 'Congress Rep', cost: 25000000000000, desc: '+10% Total Income' },
+                { name: 'Senate Majority', cost: 100000000000000, desc: '+10% Total Income' },
+                { name: 'Party Leader', cost: 250000000000000, desc: '+10% Total Income' },
+                { name: 'Electoral College', cost: 500000000000000, desc: '+10% Total Income' },
+                { name: 'Vice President', cost: 1000000000000000, desc: '+10% Total Income' },
+                { name: 'Supreme Court', cost: 2500000000000000, desc: '+10% Total Income' }
+            ]
+        };
+
+        // --- GAME STATE ---
+        let state = {
+            balance: 0, clickValue: 1, cardTier: 0, prestigeMultiplier: 1, wheelSpins: 0, tutorialCompleted: false,
+            stats: { taps: 0, trades: 0, darkWebUses: 0 },
+            businesses: CONSTANTS.BUSINESSES.map(b => ({ id: b.id, owned: 0, employees: 0, broken: false, upgraded: false, managerOwned: false, autoHire: false, merged: false })),
+            ownedLuxury: [], ownedUpgrades: [], ownedPolicies: [], portfolio: {}, achievements: [],
+            market: CONSTANTS.MARKET.map(m => {
+                let h = []; for(let i=0; i<10; i++) h.push(m.basePrice * (1 + (Math.random()*0.1 - 0.05)));
+                return { id: m.id, currentPrice: m.basePrice, previousPrice: m.basePrice, history: h };
+            }),
+            deposit: { amount: 0, unlockTime: 0 }, venture: null, lottery: { lastFreeSpin: 0, activeBoost: null }, ipoAssets: [], research: [], 
+            mapPlots: Array(9).fill().map(() => ({ owned: false, level: 0 })), campaign: { started: false, levelsOwned: 0, isPresident: false },
+            blackMarket: { taxEvasionActiveUntil: 0, ddosActiveUntil: 0 }, crisis: { active: false, endTime: 0 },
+            isVIP: false, lastVIPBonus: 0, lastHackTime: 0, lastPlayed: Date.now(), activeTab: 'bank', activeBet: null, wheelSpinning: false
+        };
+
+        let marketTimer;
+
+        // --- INIT & MIGRATION ---
+        function loadGame() {
+            const saved = localStorage.getItem('financialTycoon_v1'); 
+            if (saved) {
+                try {
+                    const p = JSON.parse(saved);
+                    state = { ...state, ...p, activeTab: 'bank', wheelSpinning: false }; 
+                    
+                    if(!state.stats) state.stats = { taps: 0, trades: 0, darkWebUses: 0 };
+                    
+                    CONSTANTS.BUSINESSES.forEach(bConst => { if(!state.businesses.find(b => b.id === bConst.id)) state.businesses.push({ id: bConst.id, owned: 0, employees: 0, broken: false, upgraded: false, managerOwned: false, autoHire: false, merged: false }); });
+                    CONSTANTS.MARKET.forEach(mConst => { 
+                        if(!state.market.find(m => m.id === mConst.id)) {
+                            let h = []; for(let i=0; i<10; i++) h.push(mConst.basePrice * (1 + (Math.random()*0.1 - 0.05)));
+                            state.market.push({ id: mConst.id, currentPrice: mConst.basePrice, previousPrice: mConst.basePrice, history: h }); 
+                        }
+                    });
+                    if(!state.ownedPolicies) state.ownedPolicies = [];
+                    if(!state.achievements) state.achievements = [];
+                    if(state.wheelSpins === undefined) state.wheelSpins = 0;
+                    if(state.tutorialCompleted === undefined) state.tutorialCompleted = false;
+
+                    const now = Date.now();
+                    const secondsAway = Math.floor((now - state.lastPlayed) / 1000);
+                    if (secondsAway > 60) {
+                        const passive = getPassiveIncome();
+                        const minutesAway = Math.floor(secondsAway / 60);
+                        const earned = (passive * secondsAway) - (getTotalSalaryPerMinute() * minutesAway);
+                        const crises = Math.floor(minutesAway / 30); // 1 crisis roughly every 30 mins
+                        
+                        if (earned > 0) {
+                            state.balance += earned;
+                            setTimeout(() => {
+                                showModal('📈 Offline Report', `
+                                    <div class="flex flex-col gap-3 text-left bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
+                                        <p class="text-sm text-slate-600 mb-2">While you were away, your managers kept things running:</p>
+                                        <div class="flex justify-between items-center"><span class="text-slate-500 font-bold"><i data-lucide="clock" class="w-4 h-4 inline mr-1"></i> Time Away:</span> <span class="font-bold text-slate-800">${(minutesAway/60).toFixed(1)} hrs</span></div>
+                                        <div class="flex justify-between items-center"><span class="text-slate-500 font-bold"><i data-lucide="coins" class="w-4 h-4 inline mr-1"></i> Earned:</span> <span class="font-bold text-emerald-500">+${formatMoney(earned)}</span></div>
+                                        ${crises > 0 ? `<div class="flex justify-between items-center"><span class="text-slate-500 font-bold"><i data-lucide="trending-down" class="w-4 h-4 inline mr-1"></i> Crises Survived:</span> <span class="font-bold text-rose-500">${crises}</span></div>` : ''}
+                                    </div>
+                                `, 'Awesome!');
+                            }, 2000); // show slightly after preloader finishes
+                        } else {
+                            state.balance = Math.max(0, state.balance + earned);
+                        }
+                    }
+                    applyTheme();
+                } catch (e) { console.error("Load error", e); }
+            }
+            saveGame();
+            renderApp();
+            startGameLoops();
+            checkPWA();
+
+            if (!state.tutorialCompleted) {
+                setTimeout(() => {
+                    showModal('👋 Welcome Tycoon!', 'Welcome to Financial Tycoon. Tap the Bank Card to earn your first dollars. Once you have enough, buy your first business in the <b>Biz</b> tab.<br><br>Good luck building your empire!', 'Let\'s Go!', () => {
+                        state.tutorialCompleted = true; saveGame();
+                        if (!document.fullscreenElement && window.innerWidth <= 768 && document.documentElement.requestFullscreen) {
+                            document.documentElement.requestFullscreen().catch(e=>console.log(e));
+                        }
+                    });
+                }, 1500);
+            }
+        }
+
+        function saveGame() { 
+            state.lastPlayed = Date.now(); 
+            localStorage.setItem('financialTycoon_v1', JSON.stringify(state)); 
+            if(isFirebaseActive && userProfile && (Date.now() - lastCloudSaveTime > 30000)) forceCloudSync();
+        }
+
+        function applyTheme() {
+            document.body.classList.remove('president-mode', 'vip-mode', 'crisis-mode');
+            if (state.crisis.active) document.body.classList.add('crisis-mode');
+            else if (state.campaign.isPresident) document.body.classList.add('president-mode');
+            else if (state.isVIP) document.body.classList.add('vip-mode');
+        }
+
+        // --- CALCULATIONS ---
+        function getMapMultiplier() { return 1 + state.mapPlots.reduce((sum, plot) => sum + (plot.level * 0.05), 0); }
+        function getPolicyIncomeMultiplier() {
+            return 1 + state.ownedPolicies.reduce((sum, pid) => {
+                const p = CONSTANTS.POLICIES.find(x => x.id === pid);
+                return p.type === 'income' ? sum + p.value : sum;
+            }, 0);
+        }
+        function getCampaignMultiplier() { return 1 + (state.campaign.levelsOwned * 0.10); }
+
+        function getPassiveIncome() {
+            const mapMult = getMapMultiplier();
+            const policyMult = getPolicyIncomeMultiplier();
+            const campMult = getCampaignMultiplier();
+            const presMult = state.campaign.isPresident ? 100 : 1;
+            const ddosMult = state.blackMarket.ddosActiveUntil > Date.now() ? 2 : 1;
+            const crisisMult = state.crisis.active ? 0.5 : 1;
+            const darkMatterMult = state.research.includes('rx9') ? 2 : 1;
+            const infEnergyMult = state.research.includes('rx8') ? 1.5 : 1;
+            const zeroGMult = state.research.includes('rx4') ? 1.2 : 1;
+            
+            return state.businesses.reduce((total, bState) => {
+                const bConst = CONSTANTS.BUSINESSES.find(b => b.id === bState.id);
+                const empMult = 1 + (bState.employees * 0.01);
+                const brokenMult = bState.broken ? 0.5 : 1;
+                const upgradeMult = bState.upgraded ? 2 : 1;
+                const boostMult = (state.lottery.activeBoost && Date.now() < state.lottery.activeBoost.expires) ? state.lottery.activeBoost.multiplier : 1;
+                const mergeMult = bState.merged ? 10 : 1;
+                
+                return total + (bConst.baseIncome * bState.owned * empMult * brokenMult * upgradeMult * state.prestigeMultiplier * mapMult * policyMult * campMult * boostMult * presMult * ddosMult * crisisMult * mergeMult * darkMatterMult * infEnergyMult * zeroGMult);
+            }, 0);
+        }
+
+        function getTotalSalaryPerMinute() {
+            if (state.blackMarket.taxEvasionActiveUntil > Date.now() || state.research.includes('rx5')) return 0;
+            const baseTax = state.research.includes('r1') ? 0.5 : 1;
+            const loopTax = state.research.includes('rx1') ? 0.25 : 1;
+            return state.businesses.reduce((total, bState) => {
+                const bConst = CONSTANTS.BUSINESSES.find(b => b.id === bState.id);
+                return total + (bState.employees * bConst.empSalary * baseTax * loopTax);
+            }, 0);
+        }
+
+        function getActualClickValue() {
+            const mapMult = getMapMultiplier();
+            const policyMult = getPolicyIncomeMultiplier();
+            const campMult = getCampaignMultiplier();
+            const presMult = state.campaign.isPresident ? 100 : 1;
+            const boostMult = (state.lottery.activeBoost && Date.now() < state.lottery.activeBoost.expires) ? state.lottery.activeBoost.multiplier : 1;
+            const cardMulti = CARD_TIERS[state.cardTier].clickMulti;
+            return state.clickValue * cardMulti * state.prestigeMultiplier * mapMult * policyMult * campMult * boostMult * presMult;
+        }
+
+        function getNetWorth() {
+            let nw = state.balance;
+            state.businesses.forEach(bState => { const bConst = CONSTANTS.BUSINESSES.find(b => b.id === bState.id); nw += bConst.baseCost * bState.owned; });
+            state.ownedLuxury.forEach(id => { nw += CONSTANTS.LUXURY.find(l => l.id === id).cost; });
+            state.market.forEach(m => { nw += (state.portfolio[m.id] || 0) * m.currentPrice; });
+            return nw;
+        }
+
+        function getStatus() {
+            if (state.campaign.isPresident) return { title: 'Mr. President', class: 'text-white bg-emerald-600 shadow-md shadow-emerald-600/50' };
+            if (state.isVIP) return { title: 'VIP Boss', class: 'text-amber-700 bg-gradient-to-r from-amber-200 to-yellow-400 border border-amber-300 shadow-md' };
+            const nw = getNetWorth();
+            if (nw >= 1e15) return { title: 'Quadrillionaire', class: 'text-purple-900 bg-purple-200' };
+            if (nw >= 1e12) return { title: 'Trillionaire', class: 'text-purple-600 bg-purple-100' };
+            if (nw >= 1e9) return { title: 'Billionaire', class: 'text-violet-600 bg-violet-100' };
+            if (nw >= 1e8) return { title: 'Oligarch', class: 'text-rose-600 bg-rose-100' };
+            if (nw >= 1e7) return { title: 'Tycoon', class: 'text-amber-600 bg-amber-100' };
+            if (nw >= 1e6) return { title: 'Millionaire', class: 'text-emerald-600 bg-emerald-100' };
+            if (nw >= 1e5) return { title: 'Upper Class', class: 'text-blue-600 bg-blue-100' };
+            if (nw >= 1e4) return { title: 'Middle Class', class: 'text-slate-600 bg-slate-100' };
+            return { title: 'Broke', class: 'text-slate-500 bg-slate-100' };
+        }
+
+        function formatMoney(amount) {
+            if (amount >= 1e15) return '$' + (amount / 1e15).toFixed(2) + ' Qa'; 
+            if (amount >= 1e12) return '$' + (amount / 1e12).toFixed(2) + ' Tr'; 
+            if (amount >= 1e9) return '$' + (amount / 1e9).toFixed(2) + ' B'; 
+            if (amount >= 1e6) return '$' + (amount / 1e6).toFixed(2) + ' M'; 
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+        }
+
+        function generateSparkline(history, isUp) {
+            const max = Math.max(...history);
+            const min = Math.min(...history);
+            const range = max - min || 1;
+            const points = history.map((val, i) => `${i * 10},${35 - ((val - min) / range) * 30}`).join(' ');
+            const color = isUp ? '#10b981' : '#f43f5e';
+            return `<svg viewBox="0 0 90 40" class="w-24 h-10 overflow-visible sparkline">
+                <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>`;
+        }
+
+        // --- LOOPS ---
+        function checkAchievements() {
+            ACHIEVEMENTS_DATA.forEach(ach => {
+                if (!state.achievements.includes(ach.id) && ach.req()) {
+                    state.achievements.push(ach.id);
+                    showAchievement(ach);
+                    if(state.activeTab === 'social') renderApp();
+                }
+            });
+        }
+
+        function showAchievement(ach) {
+            const container = document.getElementById('achievement-container');
+            const el = document.createElement('div');
+            el.className = `bg-white border-2 border-amber-400 p-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-ach-pop w-full`;
+            el.innerHTML = `
+                <img src="${ach.gif}" alt="Achievement GIF" class="w-16 h-16 rounded-xl object-cover bg-slate-100" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'64\\' height=\\'64\\'><rect width=\\'64\\' height=\\'64\\' fill=\\'%23f1f5f9\\'/><text x=\\'32\\' y=\\'36\\' font-size=\\'24\\' text-anchor=\\'middle\\' fill=\\'%2394a3b8\\'>🏆</text></svg>'">
+                <div>
+                    <p class="text-amber-500 font-extrabold text-[10px] uppercase tracking-widest">Achievement Unlocked!</p>
+                    <h4 class="font-bold text-slate-800 text-lg leading-tight">${ach.title}</h4>
+                    <p class="text-xs text-slate-500 mt-1">${ach.desc}</p>
+                </div>
+            `;
+            container.appendChild(el);
+            vibro([100, 50, 100, 50, 200]);
+            setTimeout(() => { 
+                el.classList.add('opacity-0', 'transform', '-translate-y-4', 'transition-all', 'duration-500'); 
+                setTimeout(() => el.remove(), 500); 
+            }, 5000);
+        }
+
+        function marketLoop() {
+            state.market.forEach(mState => {
+                const mConst = CONSTANTS.MARKET.find(m => m.id === mState.id) || { basePrice: mState.basePrice || mState.currentPrice, volatility: mState.volatility || 0.15 };
+                if (state.research.includes('rx6')) { // Market Rigging = never crash
+                    let newPrice = mState.currentPrice * (1 + (Math.random() * mConst.volatility));
+                    mState.previousPrice = mState.currentPrice; mState.currentPrice = newPrice;
+                } else {
+                    const crisisBias = state.crisis.active ? -0.05 : 0; 
+                    const changePercent = 1 + (Math.random() * mConst.volatility * 2 - mConst.volatility) + crisisBias;
+                    let newPrice = mState.currentPrice * changePercent;
+                    if (newPrice < mConst.basePrice * 0.1) newPrice = mConst.basePrice * 0.1;
+                    mState.previousPrice = mState.currentPrice; mState.currentPrice = newPrice;
+                }
+                mState.history.shift(); mState.history.push(mState.currentPrice);
+            });
+            if(state.activeTab === 'market') renderApp(); 
+            updateHeaderNumbers(); saveGame();
+            marketTimer = setTimeout(marketLoop, state.research.includes('r3') ? 1000 : 3000);
+        }
+
+        function startGameLoops() {
+            setInterval(() => {
+                const passive = getPassiveIncome();
+                if (passive > 0) state.balance += passive;
+                
+                let changed = false;
+                state.businesses.forEach(bState => {
+                    if (bState.managerOwned) {
+                        const bConst = CONSTANTS.BUSINESSES.find(b => b.id === bState.id);
+                        if (bState.broken && state.balance >= bConst.repairCost) { state.balance -= bConst.repairCost; bState.broken = false; changed = true; }
+                        const empCost = state.research.includes('rx3') ? 0 : bConst.empCost;
+                        if (bState.autoHire && !bState.broken && state.balance >= empCost) { state.balance -= empCost; bState.employees += 1; changed = true; }
+                    }
+                });
+                if (changed && state.activeTab === 'business') renderApp();
+
+                if (state.deposit.amount > 0 && Date.now() >= state.deposit.unlockTime) {
+                    const interest = state.research.includes('r4') ? 1.10 : 1.05;
+                    const payout = state.deposit.amount * interest;
+                    state.balance += payout; state.deposit.amount = 0;
+                    showToast(`Deposit Matured! Received ${formatMoney(payout)}`, 'success');
+                    if (state.activeTab === 'bank') renderApp();
+                }
+                if (state.venture && Date.now() >= state.venture.unlockTime) {
+                    if (Math.random() > 0.5) {
+                        const payout = state.venture.amount * 10; state.balance += payout; showToast(`Startup Unicorn! +${formatMoney(payout)}`, 'success');
+                    } else { showToast(`Startup Bankrupt. Lost ${formatMoney(state.venture.amount)}`, 'error'); }
+                    state.venture = null; if (state.activeTab === 'bank') renderApp();
+                }
+
+                if (state.crisis.active && Date.now() > state.crisis.endTime) {
+                    state.crisis.active = false; applyTheme(); showModal('📈 CRISIS OVER', 'The economy is recovering. Passive income is back to normal.'); renderApp();
+                }
+
+                checkAchievements();
+                updateHeaderNumbers(); saveGame();
+                if(isFirebaseActive && userProfile && Math.random() < 0.1) updateLeaderboardScore();
+            }, 1000);
+
+            clearTimeout(marketTimer); marketLoop();
+
+            setInterval(() => {
+                const totalSalary = getTotalSalaryPerMinute();
+                if (totalSalary > 0) {
+                    if (state.balance >= totalSalary) state.balance -= totalSalary;
+                    else state.balance = 0;
+                }
+
+                if (state.balance > 100) {
+                    const breakdownChance = state.research.includes('rx2') ? 0.01 : (state.research.includes('r2') ? 0.05 : 0.20);
+                    if (Math.random() < breakdownChance) {
+                        const healthyBiz = state.businesses.filter(b => b.owned > 0 && !b.broken);
+                        if (healthyBiz.length > 0) {
+                            healthyBiz[Math.floor(Math.random() * healthyBiz.length)].broken = true;
+                            if (state.activeTab === 'business') renderApp();
+                        }
+                    }
+                    if (!state.crisis.active && !state.research.includes('rx6') && Math.random() < 0.05) {
+                        state.crisis.active = true; state.crisis.endTime = Date.now() + 10 * 60 * 1000; applyTheme();
+                        showModal('🚨 ECONOMIC CRISIS!', 'The market crashed! Passive income is halved for 10 minutes.'); renderApp();
+                    }
+                }
+                saveGame();
+            }, 60000);
+        }
+
+        // --- UI UPDATES ---
+        function updateHeaderNumbers() {
+            document.getElementById('balance-display').textContent = formatMoney(state.balance);
+            document.getElementById('passive-display').textContent = formatMoney(getPassiveIncome());
+            
+            const st = getStatus();
+            const statusEl = document.getElementById('player-status');
+            statusEl.textContent = st.title;
+            statusEl.className = `text-[10px] uppercase tracking-wider font-extrabold px-3 py-1 rounded-full ${st.class}`;
+
+            document.getElementById('prestige-badge').classList.toggle('hidden', state.prestigeMultiplier <= 1);
+            if(state.prestigeMultiplier > 1) document.getElementById('prestige-badge').textContent = `x${state.prestigeMultiplier}`;
+            document.getElementById('crisis-badge').classList.toggle('hidden', !state.crisis.active);
+
+            document.querySelectorAll('.btn-buy').forEach(btn => {
+                const cost = parseFloat(btn.dataset.cost);
+                if (state.balance >= cost) { btn.classList.remove('opacity-50', 'bg-slate-200'); btn.disabled = false; } 
+                else { btn.classList.add('opacity-50'); btn.disabled = true; }
+            });
+
+            if(state.activeTab === 'bank') {
+                const depTimer = document.getElementById('deposit-timer');
+                if (depTimer && state.deposit.amount > 0) {
+                    const rem = Math.max(0, state.deposit.unlockTime - Date.now());
+                    depTimer.textContent = rem === 0 ? "Done" : `${Math.floor(rem/60000)}m ${Math.floor((rem%60000)/1000)}s`;
+                }
+            }
+        }
+
+        function showModal(title, contentHtml, btnText = "Close", onConfirm = null) {
+            const container = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = `
+                <h3 class="text-2xl font-extrabold mb-4 text-slate-800 tracking-tight">${title}</h3>
+                <div class="text-slate-500 mb-8 text-sm leading-relaxed">${contentHtml}</div>
+                <button id="modal-btn" class="w-full py-4 rounded-2xl bg-slate-800 text-white font-bold hover:bg-slate-700 btn-dynamic shadow-xl">${btnText}</button>
+            `;
+            container.classList.remove('hidden');
+            setTimeout(() => { content.classList.remove('scale-95', 'opacity-0'); content.classList.add('scale-100', 'opacity-100'); }, 10);
+            
+            document.getElementById('modal-btn').onclick = () => {
+                vibro(20); 
+                content.classList.remove('scale-100', 'opacity-100'); 
+                content.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => { 
+                    container.classList.add('hidden'); 
+                    if(onConfirm) onConfirm(); 
+                }, 200);
+            };
+        }
+
+        function openSettings() {
+            showModal('⚙️ Settings', `
+                <div class="flex flex-col gap-3">
+                    <button onclick="toggleMusic()" class="btn-dynamic w-full py-3 rounded-xl bg-slate-100 font-bold text-slate-700 border border-slate-200 flex items-center justify-center gap-2">
+                        <i data-lucide="${isMuted ? 'volume-x' : 'music'}" class="w-5 h-5"></i> ${isMuted ? 'Unmute Music' : 'Mute Music'}
+                    </button>
+                    ${userProfile ? `
+                        <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between shadow-inner">
+                            <div class="flex items-center gap-2">
+                                <img src="${userProfile.photoURL}" class="w-8 h-8 rounded-full border border-blue-200">
+                                <span class="text-xs font-bold text-blue-900">${userProfile.displayName}</span>
+                            </div>
+                            <span class="text-[10px] bg-blue-200 text-blue-800 px-2 py-1 rounded font-bold uppercase tracking-widest">Synced</span>
+                        </div>
+                        <button onclick="forceCloudSync()" class="btn-dynamic w-full py-3 rounded-xl bg-blue-600 font-bold text-white shadow-md flex items-center justify-center gap-2">
+                            <i data-lucide="cloud-upload" class="w-5 h-5"></i> Force Cloud Save
+                        </button>
+                        <button onclick="triggerDeleteAccountFlow()" class="btn-dynamic w-full py-3 rounded-xl bg-rose-50 font-bold text-rose-600 border border-rose-200 flex items-center justify-center gap-2 mt-4">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i> Delete Account
+                        </button>
+                    ` : `
+                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-left mt-2 shadow-inner">
+                            <h4 class="font-bold text-slate-800 mb-1 text-sm"><i data-lucide="cloud" class="w-4 h-4 inline text-blue-500"></i> Cloud Save</h4>
+                            <p class="text-xs text-slate-500 mb-3">Sign in to save your empire and sync across devices.</p>
+                            <button onclick="signInGoogle(); document.getElementById('modal-btn').click();" class="btn-dynamic flex items-center justify-center gap-3 w-full bg-white border border-slate-300 py-3 rounded-xl font-bold text-slate-700 shadow-sm">
+                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5" alt="Google"> Sign In with Google
+                            </button>
+                        </div>
+                    `}
+                </div>
+            `, 'Done');
+            lucide.createIcons();
+        }
+
+        function toggleMusic() {
+            isMuted = !isMuted;
+            if (isMuted) {
+                currentAudio.pause();
+            } else {
+                if (!musicStarted) startMusic();
+                else currentAudio.play().catch(e => console.log(e));
+            }
+            document.getElementById('modal-btn').click(); 
+            setTimeout(openSettings, 250);
+        }
+
+        function showToast(msg, type) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `${type === 'success' ? 'bg-emerald-500' : (type === 'error' ? 'bg-rose-500' : 'bg-blue-500')} text-white px-6 py-3 rounded-2xl shadow-xl font-bold text-sm animate-slide-down w-full text-center`;
+            toast.textContent = msg; container.appendChild(toast);
+            setTimeout(() => { toast.classList.add('opacity-0', 'transform', '-translate-y-4', 'transition-all'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // --- RENDER VIEWS ---
+        function renderApp() {
+            const main = document.getElementById('main-content');
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const isAct = btn.dataset.tab === state.activeTab;
+                btn.className = `nav-btn btn-dynamic snap-center flex flex-col items-center p-3 rounded-2xl min-w-[65px] flex-1 transition-all duration-300 shrink-0 ${isAct ? 'text-slate-800 bg-slate-100' : 'text-slate-400 hover:text-slate-600'}`;
+                const icon = btn.querySelector('i, svg'); if (icon) icon.classList.toggle('stroke-[2.5px]', isAct);
+            });
+
+            if (state.activeTab === 'bank') renderBank(main);
+            else if (state.activeTab === 'business') renderBusiness(main);
+            else if (state.activeTab === 'map') renderMap(main);
+            else if (state.activeTab === 'market') renderMarket(main);
+            else if (state.activeTab === 'luxury') renderLuxury(main);
+            else if (state.activeTab === 'gov') renderGov(main);
+            else if (state.activeTab === 'social') renderSocial(main);
+            else if (state.activeTab === 'dark') renderDark(main);
+
+            lucide.createIcons(); updateHeaderNumbers();
+        }
+
+        function renderBank(container) {
+            let html = `<div class="flex flex-col items-center max-w-2xl mx-auto space-y-6 mt-2 pb-10">`;
+            const currentCard = CARD_TIERS[state.cardTier]; const nextCard = CARD_TIERS[state.cardTier + 1];
+
+            html += `
+                <div id="clicker-card-container" class="w-full max-w-[340px]">
+                    <div id="clicker-card" class="relative w-full h-52 rounded-[28px] bg-gradient-to-br ${currentCard.styles} p-8 cursor-pointer border overflow-hidden shadow-2xl">
+                        <div class="card-glare"></div>
+                        <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+                        <div class="relative z-10 flex justify-between items-start">
+                            <div class="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl shadow-lg"><i data-lucide="zap" width="24" height="24"></i></div>
+                            <span class="font-bold tracking-widest uppercase text-xs opacity-80 whitespace-nowrap">${currentCard.name}</span>
+                        </div>
+                        <div class="relative z-10 mt-6"><div class="h-10 w-14 bg-white/30 backdrop-blur-md rounded-lg relative overflow-hidden opacity-90"><div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full h-full skew-x-12"></div></div></div>
+                        <div class="relative z-10 mt-4 flex justify-between items-end">
+                            <div class="font-mono text-xl tracking-[0.1em] font-medium drop-shadow-md whitespace-nowrap">1234 5678 9101 1112</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center bg-white shadow-sm border border-slate-100 px-6 py-3 rounded-full flex gap-3 items-center">
+                    <p class="text-slate-400 font-medium text-sm">Profit per tap:</p>
+                    <span class="font-bold text-emerald-500 text-lg">${formatMoney(getActualClickValue())}</span>
+                </div>
+            `;
+
+            if (nextCard) {
+                html += `
+                <div class="w-full soft-panel p-4 flex justify-between items-center">
+                    <div><p class="text-xs text-slate-500">Next Tier:</p><p class="font-bold text-slate-800">${nextCard.name} <span class="text-emerald-500 text-sm">(x${nextCard.clickMulti} Click)</span></p></div>
+                    <button data-action="upgrade-card" data-cost="${nextCard.cost}" class="btn-buy btn-dynamic bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold ${state.balance >= nextCard.cost ? '' : 'opacity-50'}">Upgrade ${formatMoney(nextCard.cost)}</button>
+                </div>`;
+            }
+
+            const isFreeSpin = Date.now() - state.lottery.lastFreeSpin > 86400000;
+            const lotteryCost = Math.max(1000, getPassiveIncome() * 60 * 5); 
+            
+            html += `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-2">
+                    <div class="soft-panel p-5 bg-slate-800 text-white w-full">
+                        <h3 class="text-lg font-extrabold mb-2 flex items-center gap-2 tracking-tight"><i data-lucide="building-2" class="w-5 h-5 text-blue-400"></i> Bank Deposit</h3>
+                        ${state.deposit.amount > 0 ? `
+                            <div class="text-center py-2"><p class="text-sm text-slate-300">Locked: <strong class="text-emerald-400">${formatMoney(state.deposit.amount)}</strong></p><p class="text-xs text-slate-400 mt-2">Unlocks in: <span id="deposit-timer" class="font-mono bg-slate-700 px-2 py-1 rounded">...</span></p></div>
+                        ` : `
+                            <p class="text-[10px] text-slate-400 mb-4 leading-tight">Lock funds for 5 mins for guaranteed interest.</p>
+                            <div class="flex gap-2">
+                                <input type="number" id="deposit-amount" placeholder="Amount ($)" class="w-full bg-slate-700 text-white rounded-xl p-2 outline-none font-mono text-xs">
+                                <button data-action="deposit" class="btn-dynamic bg-emerald-500 hover:bg-emerald-600 px-3 py-2 rounded-xl text-sm font-bold transition-colors">Deposit</button>
+                            </div>
+                        `}
+                    </div>
+                    <div class="soft-panel p-5 bg-slate-800 text-white w-full">
+                        <h3 class="text-lg font-extrabold mb-2 flex items-center gap-2 tracking-tight"><i data-lucide="dices" class="w-5 h-5 text-orange-400"></i> Fortune Wheel</h3>
+                        <p class="text-[10px] text-slate-400 leading-tight">Win Big! First spin is guaranteed lucky.</p>
+                        <button id="btn-spin" data-action="spin-lottery" class="btn-dynamic mt-4 ${state.wheelSpinning ? 'bg-slate-600' : (isFreeSpin ? 'bg-orange-500' : 'bg-slate-700')} px-6 py-3 rounded-xl font-bold w-full" ${state.wheelSpinning ? 'disabled' : ''}>
+                            ${state.wheelSpinning ? 'Spinning...' : (isFreeSpin ? 'Free Spin!' : `Spin ${formatMoney(lotteryCost)}`)}
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="w-full">
+                    <h3 class="text-lg font-extrabold text-slate-800 mb-4 tracking-tight">Boosters & Skills</h3>
+                    <div class="space-y-3">
+            `;
+            CONSTANTS.UPGRADES.forEach(u => {
+                const isOwned = state.ownedUpgrades.includes(u.id);
+                const canAfford = state.balance >= u.cost;
+                html += `
+                    <div class="soft-panel p-4 flex items-center justify-between gap-4 ${isOwned ? 'opacity-50 bg-slate-50' : ''}">
+                        <div class="text-3xl bg-slate-50 w-14 h-14 rounded-2xl flex items-center justify-center shrink-0">${u.icon}</div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-slate-800 leading-tight">${u.name}</h4>
+                            <p class="text-sm font-semibold text-emerald-500 mt-1">+${formatMoney(u.boost * state.prestigeMultiplier)} <span class="text-slate-400 font-normal">/ tap</span></p>
+                        </div>
+                        <button data-action="buy-upgrade" data-id="${u.id}" data-cost="${u.cost}" class="btn-buy btn-dynamic px-4 py-2.5 rounded-xl font-bold text-sm min-w-[80px] ${isOwned ? 'bg-slate-100 text-slate-400' : (canAfford ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400 opacity-50')}" ${isOwned ? 'disabled' : ''}>
+                            ${isOwned ? 'Owned' : formatMoney(u.cost)}
+                        </button>
+                    </div>`;
+            });
+
+            html += `</div></div></div>`;
+            container.innerHTML = html;
+
+            const card = document.getElementById('clicker-card');
+            if(card) {
+                window.addEventListener('deviceorientation', handleOrientation);
+                card.addEventListener('mousemove', (e) => { const rect = card.getBoundingClientRect(); applyTilt(card, e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height); });
+                card.addEventListener('mouseleave', () => { card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)'; const glare = card.querySelector('.card-glare'); if(glare) glare.style.opacity = '0'; });
+                card.onclick = (e) => {
+                    vibro(15); const val = getActualClickValue(); state.balance += val; 
+                    state.stats.taps++; // Track taps for achievements
+                    updateHeaderNumbers(); saveGame();
+                    const effect = document.createElement('div'); effect.innerHTML = `+$${val}`; effect.className = 'fixed text-emerald-500 font-bold text-xl pointer-events-none animate-float-up z-50 font-mono drop-shadow'; effect.style.left = `${e.clientX - 20}px`; effect.style.top = `${e.clientY - 20}px`; document.body.appendChild(effect); setTimeout(() => effect.remove(), 600);
+                };
+            }
+        }
+
+        let lastGamma = 0, lastBeta = 0;
+        function handleOrientation(e) {
+            const card = document.getElementById('clicker-card'); if(!card || state.activeTab !== 'bank') return;
+            if(Math.abs(e.gamma - lastGamma) < 1 && Math.abs(e.beta - lastBeta) < 1) return;
+            lastGamma = e.gamma; lastBeta = e.beta;
+            let rotateY = Math.max(-20, Math.min(20, e.gamma ? (e.gamma / 90) * 20 : 0));
+            let rotateX = Math.max(-20, Math.min(20, e.beta ? ((e.beta - 45) / 90) * -20 : 0));
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(0.98, 0.98, 0.98)`;
+        }
+        function applyTilt(card, x, y, width, height) {
+            const centerX = width / 2; const centerY = height / 2;
+            card.style.transform = `perspective(1000px) rotateX(${((y - centerY) / centerY) * -15}deg) rotateY(${((x - centerX) / centerX) * 15}deg) scale3d(0.98, 0.98, 0.98)`;
+            const glare = card.querySelector('.card-glare'); if(glare) { glare.style.opacity = '1'; glare.style.transform = `translate(${x - centerX}px, ${y - centerY}px)`; }
+        }
+
+        function renderBusiness(container) {
+            let html = `<div class="space-y-4 max-w-2xl mx-auto pb-10">
+                <div class="w-full mb-6">
+                    <h2 class="text-lg font-extrabold text-slate-800 mb-3 flex items-center gap-2 tracking-tight"><i data-lucide="flask-conical" class="text-blue-600"></i> Global Research</h2>
+                    <div class="flex overflow-x-auto gap-3 pb-2 hide-scroll snap-x">
+                        ${CONSTANTS.RESEARCH.map(r => {
+                            const isOwned = state.research.includes(r.id);
+                            return `<div class="soft-panel p-4 min-w-[200px] flex flex-col gap-2 snap-center shrink-0 ${isOwned ? 'bg-blue-50/50 border-blue-200' : ''}">
+                                <div class="flex items-center gap-2 mb-1"><i data-lucide="${r.icon}" class="w-5 h-5 ${isOwned ? 'text-blue-500' : 'text-slate-400'}"></i><h4 class="font-bold text-slate-800 text-sm">${r.name}</h4></div>
+                                <p class="text-xs text-slate-500 font-medium mb-2">${r.desc}</p>
+                                <button data-action="buy-research" data-id="${r.id}" data-cost="${r.cost}" class="btn-buy btn-dynamic w-full py-2 rounded-lg text-xs font-bold mt-auto ${isOwned ? 'bg-blue-100 text-blue-600' : 'bg-blue-600 text-white'}" ${isOwned ? 'disabled' : ''}>${isOwned ? 'Unlocked' : 'Research ' + formatMoney(r.cost)}</button>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                <h2 class="text-xl font-extrabold text-slate-800 mb-4 flex items-center gap-2 tracking-tight"><i data-lucide="briefcase" class="text-blue-500"></i> Enterprises</h2>`;
+
+            state.businesses.forEach(bState => {
+                const bConst = CONSTANTS.BUSINESSES.find(b => b.id === bState.id);
+                if (!bConst) return;
+                const currentCost = Math.floor(bConst.baseCost * Math.pow(1.15, bState.owned));
+                const currentIncome = bConst.baseIncome * bState.owned * (1 + (bState.employees * 0.01)) * (bState.broken ? 0.5 : 1) * (bState.upgraded ? 2 : 1) * state.prestigeMultiplier * getMapMultiplier() * getPolicyIncomeMultiplier() * getCampaignMultiplier() * (state.crisis.active ? 0.5 : 1) * (bState.merged ? 10 : 1);
+                
+                html += `
+                <div class="soft-panel p-5 flex flex-col gap-4 ${bState.broken ? 'border-rose-300 shadow-rose-100' : ''} ${bState.merged ? 'bg-purple-50/20 border-purple-200' : ''}">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="text-4xl bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${bState.broken ? 'grayscale opacity-50' : ''}">${bConst.icon}</div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-bold text-slate-800 text-lg truncate">${bConst.name}</h3>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded-md">Lvl ${bState.owned}</span>
+                                <span class="text-sm font-bold ${bState.broken ? 'text-rose-500' : 'text-emerald-500'}">+${formatMoney(currentIncome)}/s</span>
+                            </div>
+                        </div>
+                        <button data-action="buy-biz" data-id="${bConst.id}" data-cost="${currentCost}" class="btn-buy btn-dynamic bg-blue-500 text-white px-4 py-3 rounded-xl font-bold text-sm min-w-[90px] ${state.balance >= currentCost ? '' : 'opacity-50'}">Buy<br><span class="text-[10px] opacity-80">${formatMoney(currentCost)}</span></button>
+                    </div>`;
+                
+                if (bState.owned > 0) {
+                    html += `<div class="pt-3 border-t border-slate-100 flex flex-col gap-2">`;
+                    if (bState.broken) {
+                        html += `<div class="flex items-center justify-between bg-rose-50 p-2 rounded-xl border border-rose-100"><span class="text-sm text-rose-600 font-bold"><i data-lucide="alert-triangle" class="w-4 h-4 inline"></i> Needs Repair</span><button data-action="repair-biz" data-id="${bConst.id}" data-cost="${bConst.repairCost}" class="btn-buy btn-dynamic bg-rose-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold ${state.balance >= bConst.repairCost ? '' : 'opacity-50'}">Fix ${formatMoney(bConst.repairCost)}</button></div>`;
+                    }
+                    html += `<div class="flex justify-between items-center text-sm bg-slate-50 p-2 rounded-xl">
+                            <span class="text-slate-600 font-semibold"><i data-lucide="users" class="w-4 h-4 inline text-blue-500"></i> ${bState.employees} Staff (+${bState.employees}%)</span>
+                            <button data-action="hire-emp" data-id="${bConst.id}" data-cost="${bConst.empCost}" class="btn-buy btn-dynamic bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold ${state.balance >= bConst.empCost ? '' : 'opacity-50'}">Hire ${formatMoney(bConst.empCost)}</button>
+                        </div>
+                        <div class="flex justify-between items-center text-sm bg-blue-50/50 p-2 rounded-xl border border-blue-100">
+                            <span class="text-slate-700 font-semibold"><i data-lucide="user-cog" class="w-4 h-4 inline text-blue-500"></i> Manager ${bState.managerOwned ? '<span class="text-emerald-500 text-xs">(Active)</span>' : ''}</span>
+                            ${!bState.managerOwned ? `<button data-action="hire-manager" data-id="${bConst.id}" data-cost="${bConst.managerCost}" class="btn-buy btn-dynamic bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold ${state.balance >= bConst.managerCost ? '' : 'opacity-50'}">Hire ${formatMoney(bConst.managerCost)}</button>` : `<button data-action="toggle-autohire" data-id="${bConst.id}" class="btn-dynamic bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Auto: ${bState.autoHire ? 'ON' : 'OFF'}</button>`}
+                        </div>`;
+                    if (!bState.upgraded) {
+                        html += `<div class="flex justify-between items-center text-sm bg-amber-50/50 p-2 rounded-xl border border-amber-100">
+                            <span class="text-slate-700 font-semibold"><i data-lucide="arrow-up-circle" class="w-4 h-4 inline text-amber-500"></i> ${bConst.upgradeName}</span>
+                            <button data-action="upgrade-biz" data-id="${bConst.id}" data-cost="${bConst.upgradeCost}" class="btn-buy btn-dynamic bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold ${state.balance >= bConst.upgradeCost ? '' : 'opacity-50'}">Upgrade ${formatMoney(bConst.upgradeCost)}</button>
+                        </div>`;
+                    }
+                    html += `</div>`;
+                }
+                html += `</div>`;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        function renderMap(container) { 
+            let html = `<div class="space-y-6 max-w-2xl mx-auto pb-10"><div class="flex justify-between items-end mb-2"><h2 class="text-xl font-extrabold text-slate-800 flex items-center gap-2 tracking-tight"><i data-lucide="map" class="text-emerald-600"></i> Monopoly</h2><p class="text-xs font-bold text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full">+${((getMapMultiplier()-1)*100).toFixed(0)}% Income</p></div><div class="grid grid-cols-3 gap-3">`;
+            const plotCost = 10000000 * Math.pow(state.mapPlots.filter(p => p.owned).length + 1, 2);
+            state.mapPlots.forEach((plot, index) => {
+                let boxClass = "soft-panel aspect-square flex flex-col items-center justify-center text-center p-2 relative transition-all "; let content = "";
+                if (plot.level > 0) { boxClass += "bg-blue-600 border-blue-700 shadow-blue-200/50"; content = `<i data-lucide="building" class="w-8 h-8 text-white mb-1"></i><span class="text-white font-bold text-xs">Lvl ${plot.level}</span>`; }
+                else if (plot.owned) { boxClass += "bg-emerald-50 border-emerald-200"; content = `<button data-action="build-hq" data-id="${index}" data-cost="50000000" class="btn-buy btn-dynamic bg-blue-600 text-white w-full py-2 rounded-lg text-[10px] font-bold">Build HQ</button>`; }
+                else { boxClass += "bg-slate-50 border-slate-200 border-dashed border-2 cursor-pointer"; content = `<button data-action="buy-plot" data-id="${index}" data-cost="${plotCost}" class="btn-buy btn-dynamic w-full h-full text-[10px] font-bold text-slate-400">Buy<br>${formatMoney(plotCost)}</button>`; }
+                html += `<div class="${boxClass}">${content}</div>`;
+            });
+            html += `</div></div>`; container.innerHTML = html;
+        }
+
+        function renderMarket(container) {
+            let html = `<div class="space-y-4 max-w-2xl mx-auto pb-10"><h2 class="text-xl font-extrabold text-slate-800 mb-4 flex items-center gap-2 tracking-tight"><i data-lucide="line-chart" class="text-violet-500"></i> Market Exchange</h2>`;
+            state.market.forEach(mState => {
+                const mConst = CONSTANTS.MARKET.find(m => m.id === mState.id) || { icon: '📈', name: mState.name };
+                const isUp = mState.currentPrice >= mState.previousPrice;
+                const ownedAmount = state.portfolio[mState.id] || 0;
+                
+                // SVG Graph
+                const graphHtml = generateSparkline(mState.history, isUp);
+
+                html += `
+                <div class="soft-panel p-5 flex flex-col gap-4 relative overflow-hidden">
+                    <div class="absolute right-[-20px] bottom-[-10px] opacity-20 pointer-events-none">${graphHtml}</div>
+                    <div class="flex justify-between items-center relative z-10">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${mConst.icon}</span>
+                            <div>
+                                <h3 class="font-bold text-slate-800">${mConst.name}</h3>
+                                <p class="text-[11px] font-semibold text-slate-500">Owned: <span class="text-emerald-600">${ownedAmount.toFixed(2)}</span></p>
+                            </div>
+                        </div>
+                        <div class="text-right flex flex-col items-end gap-1">
+                            <p class="font-mono font-bold text-lg leading-none ${isUp ? 'text-emerald-500' : 'text-rose-500'}">${formatMoney(mState.currentPrice)}</p>
+                            ${graphHtml}
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-2 relative z-10">
+                        <button data-action="trade" data-id="${mState.id}" data-type="buy" class="flex-1 btn-dynamic bg-slate-100 text-slate-800 hover:bg-slate-200 py-3 rounded-xl font-bold text-sm" ${state.balance < mState.currentPrice ? 'disabled' : ''}>Buy 1</button>
+                        <button data-action="trade" data-id="${mState.id}" data-type="sell" class="flex-1 btn-dynamic bg-white border-2 border-slate-100 text-slate-800 hover:border-slate-200 py-3 rounded-xl font-bold text-sm" ${ownedAmount < 1 ? 'disabled' : ''}>Sell 1</button>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`; container.innerHTML = html;
+        }
+
+        function renderLuxury(container) {
+            let html = `<div class="space-y-4 max-w-2xl mx-auto pb-10"><h2 class="text-xl font-extrabold text-slate-800 mb-4 flex items-center gap-2 tracking-tight"><i data-lucide="gem" class="text-rose-400"></i> Lifestyle</h2><div class="grid grid-cols-1 sm:grid-cols-2 gap-4">`;
+            CONSTANTS.LUXURY.forEach(item => {
+                const isOwned = state.ownedLuxury.includes(item.id);
+                html += `
+                <div class="soft-panel p-6 flex flex-col items-center text-center gap-3 ${isOwned ? 'border-emerald-200 bg-emerald-50/30' : ''}">
+                    <div class="text-5xl mb-2 filter drop-shadow-md">${item.icon}</div><h3 class="font-bold text-slate-800 text-lg">${item.name}</h3><p class="text-emerald-500 font-bold font-mono">${formatMoney(item.cost)}</p>
+                    <button data-action="buy-lux" data-id="${item.id}" data-cost="${item.cost}" class="btn-buy btn-dynamic w-full py-3 rounded-xl font-bold mt-auto ${isOwned ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-800 text-white'}" ${isOwned ? 'disabled' : ''}>${isOwned ? 'Owned' : 'Purchase'}</button>
+                </div>`;
+            });
+            html += `</div></div>`; container.innerHTML = html;
+        }
+
+        function renderGov(container) {
+            let html = `<div class="space-y-6 max-w-2xl mx-auto pb-10"><h2 class="text-xl font-extrabold text-slate-800 flex items-center gap-2"><i data-lucide="landmark" class="text-blue-600"></i> City & Power</h2>`;
+            
+            // Campaign Section
+            html += `<h3 class="font-bold text-slate-700 mt-4 mb-2">Political Influence</h3>`;
+            html += `<p class="text-xs text-emerald-600 bg-emerald-50 px-3 py-2 rounded-xl mb-4 font-bold border border-emerald-100">Current Campaign Bonus: +${(getCampaignMultiplier() - 1) * 100}% Global Income</p>`;
+            if (!state.campaign.started) { html += `<button data-action="start-campaign" data-cost="50000000000" class="btn-buy btn-dynamic w-full py-4 rounded-xl bg-slate-800 text-white font-bold shadow-lg">Start Political Career ($50B)</button>`; }
+            else if (!state.campaign.isPresident) {
+                html += `<div class="space-y-3 relative"><div class="absolute left-[27px] top-6 bottom-6 w-1 bg-slate-200 z-0"></div>`;
+                CONSTANTS.CAMPAIGN.forEach((level, index) => {
+                    const isOwned = state.campaign.levelsOwned > index; const isNext = state.campaign.levelsOwned === index;
+                    html += `<div class="relative z-10 flex items-center gap-4 ${!isOwned && !isNext ? 'opacity-50 grayscale' : ''}">
+                        <div class="w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${isOwned ? 'bg-emerald-500 text-white' : (isNext ? 'bg-blue-100 text-blue-600 border-2 border-blue-500' : 'bg-slate-200 text-slate-400')}">${isOwned ? '<i data-lucide="check" class="w-6 h-6"></i>' : `<span class="font-bold text-lg">${index + 1}</span>`}</div>
+                        <div class="soft-panel p-4 flex-1 flex justify-between items-center gap-3">
+                            <div><h4 class="font-bold text-slate-800">${level.name}</h4><p class="text-xs text-emerald-600 font-bold">${level.desc}</p><p class="text-xs text-slate-500 font-mono mt-1">${formatMoney(level.cost)}</p></div>
+                            ${isOwned ? `<span class="text-emerald-500 font-bold"><i data-lucide="shield-check"></i></span>` : (isNext ? `<button data-action="buy-campaign" data-index="${index}" data-cost="${level.cost}" class="btn-buy btn-dynamic bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold">Fund</button>` : `<i data-lucide="lock" class="w-5 h-5 text-slate-300"></i>`)}
+                        </div></div>`;
+                });
+                if (state.campaign.levelsOwned === CONSTANTS.CAMPAIGN.length) html += `<button data-action="become-president" class="btn-dynamic bg-emerald-500 text-white w-full py-4 rounded-xl font-bold text-xl mt-6 shadow-lg shadow-emerald-500/30">BECOME PRESIDENT</button>`;
+                html += `</div>`;
+            } else { html += `<div class="soft-panel p-8 text-center bg-emerald-50 border-emerald-200"><h3 class="font-extrabold text-3xl mb-2">Mr. President</h3><p class="text-emerald-700 font-bold">x100 Global Income Active</p></div>`; }
+
+            // City Policies
+            html += `<h3 class="font-bold text-slate-700 mt-8 mb-2">City Infrastructure</h3><div class="grid grid-cols-1 gap-3">`;
+            CONSTANTS.POLICIES.forEach(pol => {
+                const isOwned = state.ownedPolicies.includes(pol.id);
+                html += `
+                <div class="soft-panel p-4 flex justify-between items-center ${isOwned ? 'bg-emerald-50 border-emerald-200' : ''}">
+                    <div><h4 class="font-bold text-slate-800">${pol.name}</h4><p class="text-xs text-emerald-600 font-bold mt-1">${pol.effect}</p></div>
+                    <button data-action="buy-policy" data-id="${pol.id}" data-cost="${pol.cost}" class="btn-buy btn-dynamic px-4 py-2 rounded-xl text-xs font-bold ${isOwned ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-600 text-white'}" ${isOwned ? 'disabled' : ''}>${isOwned ? 'Active' : 'Fund ' + formatMoney(pol.cost)}</button>
+                </div>`;
+            });
+            html += `</div>`;
+            
+            html += `</div>`; container.innerHTML = html;
+        }
+
+        function renderDark(container) {
+            const hour = new Date().getHours();
+            if (hour >= 22 || hour < 6 || state.research.includes('rx7')) { 
+                container.innerHTML = `<div class="space-y-4 max-w-2xl mx-auto pb-10"><h2 class="text-2xl font-extrabold text-green-500 mb-2 font-mono"><i data-lucide="skull" class="inline"></i> Dark Web</h2>
+                <div class="bg-slate-900 rounded-[28px] p-6 text-white shadow-2xl relative overflow-hidden"><div class="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.25)_50%)] bg-[length:100%_4px] opacity-20"></div><div class="relative z-20">
+                <p class="text-xs text-slate-400 mb-6 font-mono">WARNING: High risk of SEC fines.</p>
+                <div class="space-y-4">
+                    <button data-action="buy-dark" data-item="bribe" data-cost="500000000" data-risk="0.1" class="btn-buy btn-dynamic w-full bg-slate-800 text-white py-4 rounded-xl font-mono text-sm border border-slate-700 hover:bg-slate-700">Tax Immunity ($500M) - 10% Risk</button>
+                    <button data-action="buy-dark" data-item="ddos" data-cost="5000000000" data-risk="0.25" class="btn-buy btn-dynamic w-full bg-slate-800 text-white py-4 rounded-xl font-mono text-sm border border-slate-700 hover:bg-slate-700">DDoS Competitors ($5B) - 25% Risk</button>
+                    <button data-action="buy-dark" data-item="pump" data-cost="50000000000" data-risk="0.45" class="btn-buy btn-dynamic w-full bg-slate-800 text-white py-4 rounded-xl font-mono text-sm border border-slate-700 hover:bg-slate-700">Pump Market ($50B) - 45% Risk</button>
+                </div></div></div></div>`;
+            } else {
+                container.innerHTML = `<div class="flex flex-col items-center justify-center h-[70vh] text-center p-8"><i data-lucide="moon" class="w-24 h-24 text-slate-300 mb-6"></i><h2 class="text-2xl font-extrabold text-slate-800">Silk Road is Closed</h2><p class="text-slate-500">Return between 10 PM and 6 AM.</p></div>`;
+            }
+        }
+
+        function renderSocial(container) {
+            let html = `<div class="space-y-6 max-w-2xl mx-auto pb-10">`;
+            
+            // Achievements Section
+            const achievedCount = state.achievements.length;
+            const totalAch = ACHIEVEMENTS_DATA.length;
+            const achProgress = (achievedCount / totalAch) * 100;
+
+            html += `
+            <div class="flex justify-between items-end mb-4">
+                <h2 class="text-xl font-extrabold text-slate-800 flex items-center gap-2 tracking-tight"><i data-lucide="award" class="text-amber-500"></i> Achievements</h2>
+                <span class="text-sm font-bold text-slate-500">${achievedCount}/${totalAch}</span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-2.5 mb-6">
+                <div class="bg-amber-500 h-2.5 rounded-full" style="width: ${achProgress}%"></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">`;
+            
+            ACHIEVEMENTS_DATA.forEach(ach => {
+                const isOwned = state.achievements.includes(ach.id);
+                html += `
+                <div class="soft-panel p-3 flex flex-col items-center text-center gap-2 ${isOwned ? 'border-amber-200 bg-amber-50/50' : 'grayscale opacity-40'}">
+                    <div class="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shadow-sm">
+                        ${isOwned ? `<img src="${ach.gif}" class="w-full h-full object-cover">` : `<i data-lucide="lock" class="w-6 h-6 text-slate-400"></i>`}
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-xs">${ach.title}</h4>
+                        <p class="text-[10px] text-slate-500 leading-tight">${ach.desc}</p>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
+
+            // Leaderboard Section
+            html += `<h2 class="text-xl font-extrabold text-slate-800 mb-4 flex items-center gap-2 tracking-tight"><i data-lucide="trophy" class="text-blue-500"></i> Global Leaderboard</h2>`;
+            if (!isFirebaseActive) {
+                html += `<div class="soft-panel p-6 text-center bg-slate-50 border-dashed border-2"><i data-lucide="wifi-off" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i><h3 class="font-bold text-lg mb-2">Offline / Demo Mode</h3><p class="text-sm text-slate-500 mb-4">Firebase is not configured correctly. Check your connection.</p></div>`;
+            } else if (!userProfile) {
+                html += `<div class="soft-panel p-8 text-center bg-gradient-to-br from-blue-50 to-white"><h3 class="font-extrabold text-2xl mb-2 text-slate-800">Join the Elite</h3><p class="text-slate-500 text-sm mb-6">Sign in to save your net worth to the cloud.</p><button onclick="signInGoogle()" class="btn-dynamic flex items-center justify-center gap-3 w-full bg-white border border-slate-200 py-3 rounded-xl font-bold text-slate-700 hover:bg-slate-50"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5" alt="Google">Sign In with Google</button></div>`;
+            } else {
+                html += `<div class="soft-panel p-5 flex items-center justify-between bg-blue-50 border-blue-100 mb-6"><div class="flex items-center gap-3"><img src="${userProfile.photoURL}" class="w-10 h-10 rounded-full border-2 border-blue-500"><div><p class="text-xs text-slate-500 font-bold uppercase">Logged in as</p><p class="font-bold text-slate-800">${userProfile.displayName}</p></div></div><button onclick="signOutGoogle()" class="btn-dynamic text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-100">Sign Out</button></div>
+                <div class="soft-panel p-5 relative min-h-[200px]" id="leaderboard-list"><div class="absolute inset-0 flex items-center justify-center"><i data-lucide="loader-2" class="w-8 h-8 text-slate-300 animate-spin"></i></div></div>`;
+                if(isFirebaseActive) {
+                    db.collection("leaderboard").orderBy("netWorth", "desc").limit(10).get().then(snapshot => {
+                        let listHtml = `<h3 class="font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Top 10 Tycoons</h3><div class="space-y-3">`; let rank = 1;
+                        snapshot.forEach(doc => {
+                            const data = doc.data(); const isMe = data.name === userProfile.displayName;
+                            listHtml += `<div class="flex justify-between items-center p-3 rounded-xl ${isMe ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}"><div class="flex items-center gap-3"><span class="font-bold text-slate-400 w-4 text-center">${rank}</span>${data.photo ? `<img src="${data.photo}" class="w-8 h-8 rounded-full">` : `<div class="w-8 h-8 rounded-full bg-slate-300"></div>`}<span class="font-bold text-slate-700">${data.name} ${isMe ? '(You)' : ''}</span></div><span class="font-mono font-bold text-emerald-600">${formatMoney(data.netWorth)}</span></div>`; rank++;
+                        });
+                        listHtml += `</div>`; const lbList = document.getElementById('leaderboard-list'); if(lbList) lbList.innerHTML = listHtml;
+                    });
+                }
+            }
+            html += `</div>`; container.innerHTML = html;
+        }
+
+        // --- EVENT DELEGATION ---
+        document.body.addEventListener('click', (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+            if (!target.disabled && !target.id.includes('hack-btn') && !target.closest('#btn-fullscreen')) vibro(15);
+
+            if (target.dataset.tab) { state.activeTab = target.dataset.tab; renderApp(); return; }
+
+            const action = target.dataset.action;
+            const id = target.dataset.id;
+            const cost = parseFloat(target.dataset.cost);
+
+            if (action === 'upgrade-card') {
+                if (state.balance >= cost) { state.balance -= cost; state.cardTier += 1; vibro([100, 50, 100]); showToast('Bank Card Upgraded!', 'success'); saveGame(); renderApp(); }
+            }
+            else if (action === 'buy-biz') {
+                if (state.balance >= cost) { state.balance -= cost; state.businesses.find(b => b.id === id).owned += 1; saveGame(); renderApp(); }
+            }
+            else if (action === 'hire-emp') {
+                const bState = state.businesses.find(b => b.id === id);
+                if (state.balance >= cost && !bState.broken) { state.balance -= cost; bState.employees += 1; saveGame(); renderApp(); }
+            }
+            else if (action === 'hire-manager') {
+                const bState = state.businesses.find(b => b.id === id);
+                if (state.balance >= cost && !bState.managerOwned) { state.balance -= cost; bState.managerOwned = true; saveGame(); renderApp(); }
+            }
+            else if (action === 'upgrade-biz') {
+                const bState = state.businesses.find(b => b.id === id);
+                if (state.balance >= cost && !bState.upgraded) { state.balance -= cost; bState.upgraded = true; saveGame(); renderApp(); }
+            }
+            else if (action === 'repair-biz') {
+                const bState = state.businesses.find(b => b.id === id);
+                if (state.balance >= cost) { state.balance -= cost; bState.broken = false; saveGame(); renderApp(); }
+            }
+            else if (action === 'toggle-autohire') {
+                const bState = state.businesses.find(b => b.id === id); bState.autoHire = !bState.autoHire; saveGame(); renderApp();
+            }
+            else if (action === 'buy-upgrade') {
+                if (state.balance >= cost && !state.ownedUpgrades.includes(id)) { state.balance -= cost; state.ownedUpgrades.push(id); state.clickValue += CONSTANTS.UPGRADES.find(u => u.id === id).boost; saveGame(); renderApp(); }
+            }
+            else if (action === 'buy-research') {
+                if (state.balance >= cost && !state.research.includes(id)) { state.balance -= cost; state.research.push(id); saveGame(); renderApp(); }
+            }
+            else if (action === 'buy-policy') {
+                if (state.balance >= cost && !state.ownedPolicies.includes(id)) { state.balance -= cost; state.ownedPolicies.push(id); saveGame(); renderApp(); }
+            }
+            else if (action === 'buy-plot') {
+                if (state.balance >= cost) { state.balance -= cost; state.mapPlots[id].owned = true; saveGame(); renderApp(); }
+            }
+            else if (action === 'build-hq') {
+                if (state.balance >= cost && state.mapPlots[id].owned && state.mapPlots[id].level < 5) { state.balance -= cost; state.mapPlots[id].level += 1; showToast(`HQ Upgraded!`, "success"); saveGame(); renderApp(); }
+            }
+            else if (action === 'trade') {
+                const type = target.dataset.type; const mState = state.market.find(m => m.id === id);
+                if (type === 'buy' && state.balance >= mState.currentPrice) { state.balance -= mState.currentPrice; state.portfolio[id] = (state.portfolio[id] || 0) + 1; state.stats.trades++; saveGame(); renderApp(); } 
+                else if (type === 'sell' && (state.portfolio[id] || 0) >= 1) { state.balance += mState.currentPrice; state.portfolio[id] -= 1; state.stats.trades++; saveGame(); renderApp(); }
+            }
+            else if (action === 'deposit') {
+                const amt = parseFloat(document.getElementById('deposit-amount').value);
+                if (amt > 0 && amt <= state.balance) { state.balance -= amt; state.deposit = { amount: amt, unlockTime: Date.now() + 300000 }; saveGame(); renderApp(); }
+            }
+            else if (action === 'spin-lottery') {
+                const isFree = Date.now() - state.lottery.lastFreeSpin > 86400000;
+                const spinCost = Math.max(1000, getPassiveIncome() * 60 * 5);
+                if (!isFree && state.balance < spinCost) return;
+                
+                if (!isFree) state.balance -= spinCost; else state.lottery.lastFreeSpin = Date.now();
+                
+                state.wheelSpinning = true; saveGame(); renderApp();
+                setTimeout(() => {
+                    state.wheelSpinning = false;
+                    let roll = Math.random();
+                    if (state.wheelSpins === 0) roll = 0.05; // First spin forced luck
+                    state.wheelSpins = (state.wheelSpins || 0) + 1;
+
+                    if (roll < 0.05) { const p = Math.max(10000, getPassiveIncome() * 3600); state.balance += p; showModal('🎉 JACKPOT!', `Won ${formatMoney(p)}`); }
+                    else if (roll < 0.20) { state.lottery.activeBoost = { multiplier: 5, expires: Date.now() + 120000 }; showModal('🔥 FEVER TIME!', `x5 for 2 mins!`); }
+                    else if (roll < 0.40) { const p = Math.max(2000, getPassiveIncome() * 600); state.balance += p; showModal('🎁 Winner!', `Won ${formatMoney(p)}`); }
+                    else { showModal('😔 Oh...', 'You won nothing.'); }
+                    saveGame(); renderApp();
+                }, 1500);
+            }
+            else if (action === 'buy-lux') {
+                if (state.balance >= cost && !state.ownedLuxury.includes(id)) { state.balance -= cost; state.ownedLuxury.push(id); saveGame(); renderApp(); }
+            }
+            else if (action === 'start-campaign') {
+                if (state.balance >= cost) { state.balance -= cost; state.campaign.started = true; state.campaign.levelsOwned = 1; saveGame(); renderApp(); }
+            }
+            else if (action === 'buy-campaign') {
+                const idx = parseInt(target.dataset.index);
+                if (state.balance >= cost && state.campaign.levelsOwned === idx) { state.balance -= cost; state.campaign.levelsOwned += 1; saveGame(); renderApp(); }
+            }
+            else if (action === 'become-president') {
+                state.campaign.isPresident = true; applyTheme(); showModal('🇺🇸 YOU WON THE ELECTION!', `x100 Multiplier active.`); saveGame(); renderApp();
+            }
+            else if (action === 'buy-dark') {
+                if (state.balance < cost) return;
+                state.balance -= cost;
+                state.stats.darkWebUses++;
+                if (!state.research.includes('rx7') && Math.random() < parseFloat(target.dataset.risk)) {
+                    const fine = state.balance * 0.30; state.balance -= fine; showModal('🚨 SEC RAID! 🚨', `Seized ${formatMoney(fine)} (30% balance).`);
+                } else {
+                    if (target.dataset.item === 'pump') { state.market.forEach(m => { m.currentPrice *= 2; m.history.shift(); m.history.push(m.currentPrice); }); showToast('Success: Market Pumped.', 'success'); }
+                    else if (target.dataset.item === 'bribe') { state.blackMarket.taxEvasionActiveUntil = Date.now() + 3600000; showToast('Tax Immunity: 1 Hour.', 'success'); }
+                    else if (target.dataset.item === 'ddos') { state.blackMarket.ddosActiveUntil = Date.now() + 900000; showToast('DDoS Success: Income x2 for 15m.', 'success'); }
+                }
+                saveGame(); renderApp();
+            }
+        });
+
+        loadGame();
+
+    </script>
+</body>
+</html>
